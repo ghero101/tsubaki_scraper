@@ -1,0 +1,26 @@
+pub mod asmotoon;
+pub mod drakecomic;
+pub mod firescans;
+pub mod kagane;
+pub mod kdtnovels;
+pub mod mangadex;
+pub mod reset_scans;
+pub mod rizzcomic;
+pub mod temple_scan;
+pub mod thunderscans;
+// WP-Manga wrappers per-site
+pub mod asurascans;
+pub mod kenscans;
+pub mod sirenscans;
+pub mod vortexscans;
+pub mod witchscans;
+pub mod qiscans;
+pub mod madarascans;
+pub mod rizzfables;
+pub mod rokaricomics;
+pub mod stonescape;
+pub mod manhuaus;
+pub mod grimscans;
+pub mod hivetoons;
+pub mod nyxscans;
+pub mod wp_manga;
