@@ -51,21 +51,60 @@ pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Res
     loop {
         let url = base_url.to_owned() + &pattern.replace("{}", &page.to_string());
         let response = fetch_text(client, &url).await?;
-        let document = Html::parse_document(&response);
-        let selector = Selector::parse("div.page-item-detail").unwrap();
+    let document = Html::parse_document(&response);
+        
+        // Try multiple selector patterns for different theme types
+        // Order matters: try most specific first
+        let selector_patterns = vec![
+            ("div.page-item-detail", "h3 > a"),          // Standard WP-Manga
+            ("div.page-listing-item", "h3 a"),           // MadaraProject theme (firescans, etc)
+            ("div.listupd .bs .bsx", "a"),               // MangaStream nested (rizzcomic)
+            ("div.bsx", "a"),                             // MangaStream/MangaBuddy theme
+            ("div.manga-item", "a.manga-link"),          // Custom theme
+            ("div.utao .uta .imgu", "a"),                // MangaStream variant
+            ("article.bs", "a"),                          // Article-based layout
+            ("div.post-item", "h2 a"),                    // Post-based layout
+            ("div.series-item", "a.series-link"),        // Series layout
+        ];
+        
         let mut items = 0;
-        for element in document.select(&selector) {
-            if let Some(title_element) = element.select(&Selector::parse("h3 > a").unwrap()).next() {
-                let title = title_element.text().collect::<String>().trim().to_string();
-                let series_url = title_element.value().attr("href").unwrap_or("").to_string();
-                let cover_url = element
-                    .select(&Selector::parse("img").unwrap())
-                    .next()
-                    .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
-                    .map(|s| s.to_string());
-                if !series_url.is_empty() {
-                    items += 1;
-                    out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+        
+        for (container_sel, link_sel) in &selector_patterns {
+            if let Ok(container_selector) = Selector::parse(container_sel) {
+                for element in document.select(&container_selector) {
+                    let title: String;
+                    let series_url: String;
+                    
+                    if let Some(link_element) = element.select(&Selector::parse(link_sel).unwrap()).next() {
+                        series_url = link_element.value().attr("href").unwrap_or("").to_string();
+                        
+                        // Try multiple ways to get title
+                        if *link_sel == "h3 > a" || *link_sel == "h3 a" || *link_sel == "h2 a" {
+                            title = link_element.text().collect::<String>().trim().to_string();
+                        } else {
+                            // For other patterns, try title attribute first, then text
+                            title = link_element.value().attr("title")
+                                .map(|s| s.to_string())
+                                .or_else(|| Some(link_element.text().collect::<String>().trim().to_string()))
+                                .unwrap_or_default();
+                        }
+                        
+                        let cover_url = element
+                            .select(&Selector::parse("img").unwrap())
+                            .next()
+                            .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
+                            .map(|s| s.to_string());
+                        
+                        if !series_url.is_empty() && !title.is_empty() {
+                            items += 1;
+                            out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                        }
+                    }
+                }
+                
+                // If we found items with this pattern, stop trying others
+                if items > 0 {
+                    break;
                 }
             }
         }
@@ -104,19 +143,53 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
     }
     
     let document = Html::parse_document(&response_text);
-    let selector = Selector::parse("div.page-item-detail").unwrap();
+    
+    // Try multiple selector patterns for different theme types
+    // Order matters: try most specific first
+    let selector_patterns = vec![
+        ("div.page-item-detail", "h3 > a"),          // Standard WP-Manga
+        ("div.page-listing-item", "h3 a"),           // MadaraProject theme (firescans, etc)
+        ("div.listupd .bs .bsx", "a"),               // MangaStream nested (rizzcomic)
+        ("div.bsx", "a"),                             // MangaStream/MangaBuddy theme
+        ("div.manga-item", "a.manga-link"),          // Custom theme
+        ("div.utao .uta .imgu", "a"),                // MangaStream variant
+        ("article.bs", "a"),                          // Article-based layout
+        ("div.post-item", "h2 a"),                    // Post-based layout
+        ("div.series-item", "a.series-link"),        // Series layout
+    ];
+    
     let mut out = Vec::new();
-    for element in document.select(&selector) {
-        if let Some(title_element) = element.select(&Selector::parse("h3 > a").unwrap()).next() {
-            let title = title_element.text().collect::<String>().trim().to_string();
-            let series_url = title_element.value().attr("href").unwrap_or("").to_string();
-            let cover_url = element
-                .select(&Selector::parse("img").unwrap())
-                .next()
-                .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
-                .map(|s| s.to_string());
-            if !series_url.is_empty() {
-                out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+    
+    for (container_sel, link_sel) in &selector_patterns {
+        if let Ok(container_selector) = Selector::parse(container_sel) {
+            for element in document.select(&container_selector) {
+                if let Some(link_element) = element.select(&Selector::parse(link_sel).unwrap()).next() {
+                    let series_url = link_element.value().attr("href").unwrap_or("").to_string();
+                    
+                    let title: String = if *link_sel == "h3 > a" || *link_sel == "h3 a" || *link_sel == "h2 a" {
+                        link_element.text().collect::<String>().trim().to_string()
+                    } else {
+                        link_element.value().attr("title")
+                            .map(|s| s.to_string())
+                            .or_else(|| Some(link_element.text().collect::<String>().trim().to_string()))
+                            .unwrap_or_default()
+                    };
+                    
+                    let cover_url = element
+                        .select(&Selector::parse("img").unwrap())
+                        .next()
+                        .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
+                        .map(|s| s.to_string());
+                    
+                    if !series_url.is_empty() && !title.is_empty() {
+                        out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                    }
+                }
+            }
+            
+            // If we found items with this pattern, stop trying others
+            if !out.is_empty() {
+                break;
             }
         }
     }

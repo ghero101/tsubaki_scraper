@@ -118,17 +118,32 @@ pub async fn search_manga_first_page(client: &Client) -> Result<Vec<(Manga, Stri
     let response = client.get(&url).send().await?.text().await?;
     let document = Html::parse_document(&response);
     let mut out = Vec::new();
-    for element in document.select(&Selector::parse("div.series-card").unwrap()) {
-        if let Some(title_element) = element.select(&Selector::parse("a.series-title").unwrap()).next() {
-            let title = title_element.text().collect::<String>().trim().to_string();
-            let series_url = title_element.value().attr("href").unwrap_or("").to_string();
-            let cover_url = element
-                .select(&Selector::parse("img.series-poster").unwrap())
-                .next()
-                .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
-                .map(|s| s.to_string());
-            if !series_url.is_empty() {
-                out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+    
+    // Try multiple selectors for different FireScans layouts
+    let selectors = vec![
+        ("div.page-listing-item", "h3 a"),  // MadaraProject theme (current)
+        ("div.series-card", "a.series-title"),  // Old layout
+        ("div.page-item-detail", "h3 > a"),  // Standard WP-Manga
+    ];
+    
+    for (container_sel, link_sel) in &selectors {
+        if let Ok(container_selector) = Selector::parse(container_sel) {
+            for element in document.select(&container_selector) {
+                if let (Ok(link_selector), Some(title_element)) = (Selector::parse(link_sel), element.select(&Selector::parse(link_sel).unwrap()).next()) {
+                    let title = title_element.text().collect::<String>().trim().to_string();
+                    let series_url = title_element.value().attr("href").unwrap_or("").to_string();
+                    let cover_url = element
+                        .select(&Selector::parse("img").unwrap())
+                        .next()
+                        .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
+                        .map(|s| s.to_string());
+                    if !series_url.is_empty() {
+                        out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                    }
+                }
+            }
+            if !out.is_empty() {
+                break;  // Found manga with this selector, stop trying others
             }
         }
     }

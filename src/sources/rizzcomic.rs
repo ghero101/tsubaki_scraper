@@ -122,11 +122,16 @@ pub async fn search_manga_first_page(client: &Client) -> Result<Vec<(Manga, Stri
         ];
         for sel in &selectors {
             for element in document.select(sel) {
-                let a_sel = Selector::parse("h3 > a, a.item-title, a.series-title").unwrap();
+                // Try multiple link patterns
+                let a_sel = Selector::parse("h3 > a, a.item-title, a.series-title, a").unwrap();
                 if let Some(a) = element.select(&a_sel).next() {
-                    let title = a.text().collect::<String>().trim().to_string();
+                    // Get title from title attribute or link text
+                    let title = a.value().attr("title")
+                        .map(|s| s.to_string())
+                        .or_else(|| Some(a.text().collect::<String>().trim().to_string()))
+                        .unwrap_or_default();
                     let series_url = a.value().attr("href").unwrap_or("").to_string();
-                    if series_url.is_empty() || seen.contains(&series_url) { continue; }
+                    if title.is_empty() || series_url.is_empty() || seen.contains(&series_url) { continue; }
                     let cover_url = element
                         .select(&Selector::parse("img").unwrap())
                         .next()

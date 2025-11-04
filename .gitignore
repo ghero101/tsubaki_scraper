@@ -1,1 +1,67 @@
-/target
+# ---- Rust build artifacts ----
+/target/
+**/*.rs.bk
+
+# ---- Cargo package manager ----
+# Ignore Cargo.lock for libraries (keep it for binaries)
+# Uncomment the next line if this is a library crate
+# Cargo.lock
+
+# ---- Build and runtime logs ----
+*.log
+
+# ---- Backup / temp files ----
+*.swp
+*.swo
+*.tmp
+*.bak
+*~
+.DS_Store
+Thumbs.db
+
+# ---- IDE / Editor configs ----
+# VS Code
+.vscode/
+
+# JetBrains IDEs (CLion, IntelliJ, RustRover)
+.idea/
+
+# Emacs / Vim / Sublime
+*.sublime-workspace
+*.sublime-project
+Session.vim
+
+# ---- Testing / benchmarking ----
+/target/debug/
+/target/release/
+/target/criterion/
+
+# ---- Rustfmt / Clippy outputs ----
+rustfmt.toml
+.clippy.toml
+
+# ---- Cross-compilation / build tools ----
+/cross/
+/dist/
+/out/
+/build/
+
+# ---- Other optional Rust tools ----
+# Ignore local cargo configs and registries
+.cargo/
+/registry/
+/index/
+
+# ---- Coverage tools ----
+/coverage/
+/lcov.info
+
+# ---- WASM or embedded builds ----
+/wasm-pack/
+/pkg/
+/wasm32-unknown-unknown/
+
+# ---- downloads ----
+/downloads
+/logs
+manga.db
