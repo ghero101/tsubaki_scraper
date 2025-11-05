@@ -159,7 +159,12 @@ pub mod wp_manga_browser {
                         let url = if href.starts_with("http") {
                             href.to_string()
                         } else {
-                            format!("{}{}", base_url.trim_end_matches('/'), if href.starts_with('/') { href } else { &format!("/{}", href) })
+                            let path = if href.starts_with('/') {
+                                href.to_string()
+                            } else {
+                                format!("/{}", href)
+                            };
+                            format!("{}{}", base_url.trim_end_matches('/'), path)
                         };
 
                         chapters.push(Chapter {
@@ -180,7 +185,7 @@ pub mod wp_manga_browser {
         Ok(chapters)
     }
 
-    pub fn parse_manga_page(html: &str, base_url: &str) -> Vec<(Manga, String)> {
+    pub fn parse_manga_page(html: &str, _base_url: &str) -> Vec<(Manga, String)> {
         let document = Html::parse_document(html);
         let selector_patterns = vec![
             ("div.page-item-detail", "h3 > a"),
@@ -319,7 +324,7 @@ pub mod drakecomic_browser {
         let browser = BrowserClient::new()?;
 
         log::info!("Fetching chapters from {} with Cloudflare bypass", series_url);
-        let html = browser.navigate_with_cloudflare_bypass(series_url)?;
+        let _html = browser.navigate_with_cloudflare_bypass(series_url)?;
 
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }

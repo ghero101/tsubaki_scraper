@@ -129,7 +129,7 @@ pub async fn search_manga_first_page(client: &Client) -> Result<Vec<(Manga, Stri
     for (container_sel, link_sel) in &selectors {
         if let Ok(container_selector) = Selector::parse(container_sel) {
             for element in document.select(&container_selector) {
-                if let (Ok(link_selector), Some(title_element)) = (Selector::parse(link_sel), element.select(&Selector::parse(link_sel).unwrap()).next()) {
+                if let (Ok(_link_selector), Some(title_element)) = (Selector::parse(link_sel), element.select(&Selector::parse(link_sel).unwrap()).next()) {
                     let title = title_element.text().collect::<String>().trim().to_string();
                     let series_url = title_element.value().attr("href").unwrap_or("").to_string();
                     let cover_url = element

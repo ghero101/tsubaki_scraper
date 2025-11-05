@@ -222,7 +222,16 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                     let mut title_text = a.value().attr("title").map(|s| s.trim().to_string())
                         .filter(|s| !s.is_empty())
                         .unwrap_or_else(|| a.text().collect::<String>().trim().to_string());
-                    let series_url = if h.starts_with("http") { h.to_string() } else { format!("{}{}", base_url.trim_end_matches('/'), if h.starts_with('/') { h } else { &format!("/{}", h) }) };
+                    let series_url = if h.starts_with("http") {
+                        h.to_string()
+                    } else {
+                        let path = if h.starts_with('/') {
+                            h.to_string()
+                        } else {
+                            format!("/{}", h)
+                        };
+                        format!("{}{}", base_url.trim_end_matches('/'), path)
+                    };
                     if title_text.is_empty() {
                         // Derive from slug
                         let slug = series_url.trim_end_matches('/').rsplit('/').next().unwrap_or("");

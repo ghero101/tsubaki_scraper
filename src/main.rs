@@ -1454,7 +1454,7 @@ pub struct MetadataProgress {
 pub struct AppState {
     db: Mutex<Connection>,
     client: Client,
-    enhanced_client: crate::http_client::EnhancedHttpClient,
+    _enhanced_client: crate::http_client::EnhancedHttpClient,
     metrics: crate::metrics::MetricsTracker,
     config: crate::config::Config,
     crawl_progress: Mutex<crawler::CrawlProgress>,
@@ -1523,7 +1523,7 @@ async fn main() -> std::io::Result<()> {
     let data = web::Data::new(AppState {
         db: Mutex::new(conn),
         client,
-        enhanced_client,
+        _enhanced_client: enhanced_client,
         metrics,
         config: cfg,
         crawl_progress: Mutex::new(crawler::CrawlProgress::default()),
@@ -1721,7 +1721,7 @@ async fn main() -> std::io::Result<()> {
                     let mut updated = 0usize;
                     for (manga_id,title,alts) in rows_vec {
                         // cancel?
-                        { if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; } }
+                        if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::mangabaka::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(pid)) => {
                             let _ = conn.execute("UPDATE manga SET mangabaka_id=?1 WHERE id=?2", rusqlite::params![pid, manga_id]);
                             let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'mangabaka',?2)", rusqlite::params![manga_id, pid]);
@@ -1756,7 +1756,7 @@ async fn main() -> std::io::Result<()> {
                     let rows = match stmt.query_map([], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?))) { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
                     let mut updated = 0usize;
                     for row in rows { if let Ok((manga_id,title,alts)) = row {
-                        { if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; } }
+                        if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::mal::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(mid)) => {
                             let _ = conn.execute("UPDATE manga SET mal_id=?1 WHERE id=?2", rusqlite::params![mid, manga_id]);
                             let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'mal',?2)", rusqlite::params![manga_id, mid.to_string()]);
@@ -1784,7 +1784,7 @@ async fn main() -> std::io::Result<()> {
                     let rows = match stmt.query_map([], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?))) { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
                     let mut updated = 0usize;
                     for row in rows { if let Ok((manga_id,title,alts)) = row {
-                        { if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; } }
+                        if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::anilist::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(aid)) => {
                             let _ = conn.execute("UPDATE manga SET anilist_id=?1 WHERE id=?2", rusqlite::params![aid, manga_id]);
                             let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'anilist',?2)", rusqlite::params![manga_id, aid.to_string()]);
@@ -1831,7 +1831,7 @@ async fn main() -> std::io::Result<()> {
                     drop(stmt);
                     let mut updated_baka = 0usize;
                     for (manga_id,title,alts) in rows_vec {
-                        { if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; } }
+                        if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::mangabaka::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(pid)) => {
                             let _ = conn.execute("UPDATE manga SET mangabaka_id=?1 WHERE id=?2", rusqlite::params![pid, manga_id]);
                             let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'mangabaka',?2)", rusqlite::params![manga_id, pid]);
@@ -1853,7 +1853,7 @@ async fn main() -> std::io::Result<()> {
                     drop(stmt);
                     let mut updated_mal = 0usize;
                     for (manga_id,title,alts) in rows_vec {
-                        { if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; } }
+                        if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::mal::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(mid)) => {
                             let _ = conn.execute("UPDATE manga SET mal_id=?1 WHERE id=?2", rusqlite::params![mid, manga_id]);
                             let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'mal',?2)", rusqlite::params![manga_id, mid.to_string()]);
@@ -1874,7 +1874,7 @@ async fn main() -> std::io::Result<()> {
                     drop(stmt);
                     let mut updated_ani = 0usize;
                     for (manga_id,title,alts) in rows_vec {
-                        { if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; } }
+                        if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::anilist::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(aid)) => {
                             let _ = conn.execute("UPDATE manga SET anilist_id=?1 WHERE id=?2", rusqlite::params![aid, manga_id]);
                             let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'anilist',?2)", rusqlite::params![manga_id, aid.to_string()]);

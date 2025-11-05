@@ -3,6 +3,7 @@ use rusqlite::Connection;
 use std::error::Error;
 
 // Combine metadata from providers into manga.description, manga.tags, manga.rating
+#[allow(dead_code)]
 pub async fn sync_all(conn: &Connection, client: &Client) -> Result<usize, Box<dyn Error>> {
     // Ensure provider IDs exist first
     let _ = super::mangabaka::sync_all(conn, client).await;

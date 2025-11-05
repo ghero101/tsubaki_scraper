@@ -26,6 +26,7 @@ pub struct SourceMetrics {
 }
 
 impl SourceMetrics {
+    #[allow(dead_code)]
     pub fn new(source_name: String) -> Self {
         Self {
             source_name,
@@ -52,6 +53,7 @@ impl SourceMetrics {
         }
     }
 
+    #[allow(dead_code)]
     pub fn record_success(&mut self, response_time: Duration) {
         self.total_requests += 1;
         self.successful_requests += 1;
@@ -63,6 +65,7 @@ impl SourceMetrics {
             self.total_response_time_ms as f64 / self.successful_requests as f64;
     }
 
+    #[allow(dead_code)]
     pub fn record_failure(&mut self, error: String) {
         self.total_requests += 1;
         self.failed_requests += 1;
@@ -80,6 +83,7 @@ impl SourceMetrics {
         }
     }
 
+    #[allow(dead_code)]
     pub fn record_retry(&mut self) {
         self.retry_count += 1;
     }
@@ -97,6 +101,7 @@ impl MetricsTracker {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_or_create(&self, source_name: &str) -> SourceMetrics {
         let mut metrics = self.metrics.lock().unwrap();
         metrics
@@ -105,6 +110,7 @@ impl MetricsTracker {
             .clone()
     }
 
+    #[allow(dead_code)]
     pub fn record_success(&self, source_name: &str, response_time: Duration) {
         let mut metrics = self.metrics.lock().unwrap();
         let source_metrics = metrics
@@ -120,6 +126,7 @@ impl MetricsTracker {
         );
     }
 
+    #[allow(dead_code)]
     pub fn record_failure(&self, source_name: &str, error: String) {
         let mut metrics = self.metrics.lock().unwrap();
         let source_metrics = metrics
@@ -135,6 +142,7 @@ impl MetricsTracker {
         );
     }
 
+    #[allow(dead_code)]
     pub fn record_retry(&self, source_name: &str) {
         let mut metrics = self.metrics.lock().unwrap();
         let source_metrics = metrics
@@ -145,6 +153,7 @@ impl MetricsTracker {
         log::debug!("[{}] Retry attempt - Total retries: {}", source_name, source_metrics.retry_count);
     }
 
+    #[allow(dead_code)]
     pub fn get_metrics(&self, source_name: &str) -> Option<SourceMetrics> {
         let metrics = self.metrics.lock().unwrap();
         metrics.get(source_name).cloned()
@@ -155,6 +164,7 @@ impl MetricsTracker {
         metrics.values().cloned().collect()
     }
 
+    #[allow(dead_code)]
     pub fn print_summary(&self) {
         let metrics = self.metrics.lock().unwrap();
         println!("\n=== Source Performance Summary ===\n");
@@ -182,6 +192,7 @@ impl MetricsTracker {
         }
     }
 
+    #[allow(dead_code)]
     pub fn export_json(&self) -> String {
         let metrics = self.metrics.lock().unwrap();
         serde_json::to_string_pretty(&*metrics).unwrap_or_else(|_| "{}".to_string())
@@ -195,6 +206,7 @@ impl Default for MetricsTracker {
 }
 
 /// Helper function to time an operation and record metrics
+#[allow(dead_code)]
 pub async fn track_request<F, T, E>(
     tracker: &MetricsTracker,
     source_name: &str,
