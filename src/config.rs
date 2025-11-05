@@ -13,7 +13,7 @@ pub struct Config {
 pub struct BotDetectionConfig {
     /// Enable enhanced HTTP client with retry logic
     #[serde(default = "default_true")]
-    pub enable_enhanced_client: bool,
+    pub _enable_enhanced_client: bool,
 
     /// Enable headless browser for JavaScript-rendered sites
     #[serde(default = "default_false")]
@@ -45,19 +45,19 @@ pub struct BotDetectionConfig {
 
     /// Browser timeout in seconds (for JavaScript-rendered sites)
     #[serde(default = "default_browser_timeout")]
-    pub browser_timeout_secs: u64,
+    pub _browser_timeout_secs: u64,
 
     /// Browser headless mode
     #[serde(default = "default_true")]
-    pub browser_headless: bool,
+    pub _browser_headless: bool,
 
     /// Disable images in browser (faster loading)
     #[serde(default = "default_true")]
-    pub browser_disable_images: bool,
+    pub _browser_disable_images: bool,
 
     /// Rate limiting delay between requests in milliseconds
     #[serde(default = "default_rate_limit")]
-    pub rate_limit_delay_ms: u64,
+    pub _rate_limit_delay_ms: u64,
 }
 
 fn default_true() -> bool { true }
@@ -72,7 +72,7 @@ fn default_rate_limit() -> u64 { 300 }
 impl Default for BotDetectionConfig {
     fn default() -> Self {
         Self {
-            enable_enhanced_client: true,
+            _enable_enhanced_client: true,
             enable_browser: false, // Disabled by default (requires Chrome)
             max_retries: 4,
             initial_retry_delay_ms: 500,
@@ -80,10 +80,10 @@ impl Default for BotDetectionConfig {
             timeout_secs: 30,
             enable_cookies: true,
             enable_compression: true,
-            browser_timeout_secs: 30,
-            browser_headless: true,
-            browser_disable_images: true,
-            rate_limit_delay_ms: 300,
+            _browser_timeout_secs: 30,
+            _browser_headless: true,
+            _browser_disable_images: true,
+            _rate_limit_delay_ms: 300,
         }
     }
 }
@@ -130,6 +130,7 @@ impl BotDetectionConfig {
     }
 
     /// Create a browser client from this configuration
+    #[allow(dead_code)]
     pub fn create_browser_client(&self) -> Result<crate::browser_client::BrowserClient, Box<dyn std::error::Error>> {
         use crate::browser_client::{BrowserClient, BrowserConfig};
         use std::time::Duration;
@@ -139,11 +140,11 @@ impl BotDetectionConfig {
         }
 
         let config = BrowserConfig {
-            headless: self.browser_headless,
+            headless: self._browser_headless,
             window_width: 1920,
             window_height: 1080,
-            timeout: Duration::from_secs(self.browser_timeout_secs),
-            disable_images: self.browser_disable_images,
+            timeout: Duration::from_secs(self._browser_timeout_secs),
+            disable_images: self._browser_disable_images,
             user_agent: Some(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                     .to_string(),

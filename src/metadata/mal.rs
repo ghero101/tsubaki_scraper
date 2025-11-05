@@ -27,6 +27,7 @@ pub async fn resolve_id(client: &Client, title: &str, alts: &str) -> Result<Opti
     Ok(None)
 }
 
+#[allow(dead_code)]
 pub async fn sync_all(conn: &Connection, client: &Client) -> Result<usize, Box<dyn Error>> {
     // Find manga missing mal_id
     let mut stmt = conn.prepare("SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mal_id IS NULL OR mal_id = 0")?;

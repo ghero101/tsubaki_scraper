@@ -27,6 +27,7 @@ pub async fn resolve_id(client: &Client, title: &str, alts: &str) -> Result<Opti
     Ok(None)
 }
 
+#[allow(dead_code)]
 pub async fn sync_all(conn: &Connection, client: &Client) -> Result<usize, Box<dyn Error>> {
     let mut stmt = conn.prepare("SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE anilist_id IS NULL OR anilist_id = 0")?;
     let rows = stmt.query_map([], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?)))?;

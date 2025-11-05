@@ -45,6 +45,7 @@ pub async fn fetch_details(client: &Client, pid: &str) -> Result<(Option<String>
     Ok((desc, genres))
 }
 
+#[allow(dead_code)]
 pub async fn sync_all(conn: &Connection, client: &Client) -> Result<usize, Box<dyn Error>> {
     // Get manga needing mangabaka_id
     let mut stmt = conn.prepare(

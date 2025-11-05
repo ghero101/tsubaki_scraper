@@ -27,6 +27,7 @@ pub struct CrawlProgress {
     pub error: Option<String>,
 }
 
+#[allow(dead_code)]
 pub fn spawn_full_crawl(data: web::Data<crate::AppState>) {
     spawn_full_crawl_with_filters(data, None, None);
 }
