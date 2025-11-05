@@ -1485,6 +1485,53 @@ async fn main() -> std::io::Result<()> {
                         _ => None,
                     }
                 }
+                // Special-case non-WP sources first
+                let sname = source.to_lowercase();
+                if sname == "mangadex" {
+                    let client = &data.client;
+                    let mut conn = data.db.lock().unwrap();
+                    let mut manga_added = 0usize; let mut ch_added = 0usize;
+                    let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
+                    let list = match crate::sources::mangadex::search_manga(client, "", crate::sources::mangadex::BASE_URL).await { Ok(v)=>v, Err(e)=>{ return HttpResponse::InternalServerError().json(json!({"error":format!("fetch failed: {}", e)})); } };
+                    for m in list.into_iter().take(limit_manga) {
+                        let mut mm = m.clone(); mm.id = uuid::Uuid::new_v4().to_string();
+                        let _ = db::insert_manga(&tx, &mm);
+                        let msd = MangaSourceData { manga_id: mm.id.clone(), source_id: Source::MangaDex as i32, source_manga_id: m.id.clone(), source_manga_url: format!("https://mangadex.org/title/{}", m.id) };
+                        let msd_id = match db::insert_manga_source_data(&tx, &msd) { Ok(id)=>id, Err(_)=>continue };
+                        let chs = crate::sources::mangadex::get_chapters(client, &m.id).await.unwrap_or_default();
+                        let chs_limited: Vec<_> = chs.into_iter().take(limit_ch).collect();
+                        let _ = db::insert_chapters(&tx, msd_id, &chs_limited);
+                        manga_added += 1; ch_added += chs_limited.len();
+                    }
+                    let _ = tx.commit();
+                    return HttpResponse::Ok().json(json!({"source": source.to_string(), "manga_added": manga_added, "chapters_added": ch_added}));
+                }
+                if sname == "kagane" {
+                    let client = &data.client;
+                    let mut conn = data.db.lock().unwrap();
+                    let mut manga_added = 0usize; let mut ch_added = 0usize;
+                    let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
+                    let list = match crate::sources::kagane::search_all_series_with_urls(client).await { Ok(v)=>v, Err(e)=>{ return HttpResponse::InternalServerError().json(json!({"error":format!("fetch failed: {}", e)})); } };
+                    for (m,u) in list.into_iter().take(limit_manga) {
+                        let mut mm = m.clone(); mm.id = uuid::Uuid::new_v4().to_string();
+                        let _ = db::insert_manga(&tx, &mm);
+                        let msd = MangaSourceData { manga_id: mm.id.clone(), source_id: Source::Kagane as i32, source_manga_id: u.clone(), source_manga_url: u.clone() };
+                        let msd_id = match db::insert_manga_source_data(&tx, &msd) { Ok(id)=>id, Err(_)=>continue };
+                        let chs = crate::sources::kagane::get_chapters(client, &msd.source_manga_url).await.unwrap_or_default();
+                        let chs_limited: Vec<_> = chs.into_iter().take(limit_ch).collect();
+                        let _ = db::insert_chapters(&tx, msd_id, &chs_limited);
+                        // Also capture external provider links and add as additional sources (no chapters here to keep quick)
+                        for (sid, link) in crate::sources::kagane::extract_provider_links(client, &u).await.into_iter().take(10) {
+                            let extra = MangaSourceData { manga_id: mm.id.clone(), source_id: sid, source_manga_id: link.clone(), source_manga_url: link };
+                            let _ = db::insert_manga_source_data(&tx, &extra);
+                        }
+                        manga_added += 1; ch_added += chs_limited.len();
+                    }
+                    let _ = tx.commit();
+                    return HttpResponse::Ok().json(json!({"source": source.to_string(), "manga_added": manga_added, "chapters_added": ch_added}));
+                }
+
+                // WP-Manga flow
                 let base = wp_base(&source).or_else(|| wp_manga_source_by_name(&source).map(|(_,b)| b.to_string()));
                 if base.is_none() { return HttpResponse::BadRequest().json(json!({"error":"unknown or non-wp source"})); }
                 let base = base.unwrap();
@@ -1494,7 +1541,6 @@ async fn main() -> std::io::Result<()> {
                 let mut ch_added = 0usize;
                 let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
                 // Choose per-source first-page + chapters strategy
-                let sname = source.to_lowercase();
                 let items: Vec<(Manga,String)> = match sname.as_str() {
                     "firescans" => match crate::sources::firescans::search_manga_first_page(client).await { Ok(v)=>v, Err(e)=>{ return HttpResponse::InternalServerError().json(json!({"error":format!("fetch failed: {}", e)})); } },
                     "rizzcomic" => match crate::sources::rizzcomic::search_manga_first_page(client).await { Ok(v)=>v, Err(e)=>{ return HttpResponse::InternalServerError().json(json!({"error":format!("fetch failed: {}", e)})); } },
@@ -1779,6 +1825,48 @@ async fn main() -> std::io::Result<()> {
                         _ => None,
                     }
                 }
+                // Special-case non-WP sources first
+                let sname = source.to_lowercase();
+                if sname == "mangadex" {
+                    let client = &data.client;
+                    let mut conn = data.db.lock().unwrap();
+                    let mut manga_added = 0usize; let mut ch_added = 0usize;
+                    let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
+                    let list = match crate::sources::mangadex::search_manga(client, "", crate::sources::mangadex::BASE_URL).await { Ok(v)=>v, Err(e)=>{ return HttpResponse::InternalServerError().json(json!({"error":format!("fetch failed: {}", e)})); } };
+                    for m in list.into_iter().take(limit_manga) {
+                        let mut mm = m.clone(); mm.id = uuid::Uuid::new_v4().to_string();
+                        let _ = db::insert_manga(&tx, &mm);
+                        let msd = MangaSourceData { manga_id: mm.id.clone(), source_id: Source::MangaDex as i32, source_manga_id: m.id.clone(), source_manga_url: format!("https://mangadex.org/title/{}", m.id) };
+                        let msd_id = match db::insert_manga_source_data(&tx, &msd) { Ok(id)=>id, Err(_)=>continue };
+                        let chs = crate::sources::mangadex::get_chapters(client, &m.id).await.unwrap_or_default();
+                        let chs_limited: Vec<_> = chs.into_iter().take(limit_ch).collect();
+                        let _ = db::insert_chapters(&tx, msd_id, &chs_limited);
+                        manga_added += 1; ch_added += chs_limited.len();
+                    }
+                    let _ = tx.commit();
+                    return HttpResponse::Ok().json(json!({"source": source.to_string(), "manga_added": manga_added, "chapters_added": ch_added}));
+                }
+                if sname == "kagane" {
+                    let client = &data.client;
+                    let mut conn = data.db.lock().unwrap();
+                    let mut manga_added = 0usize; let mut ch_added = 0usize;
+                    let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
+                    let list = match crate::sources::kagane::search_all_series_with_urls(client).await { Ok(v)=>v, Err(e)=>{ return HttpResponse::InternalServerError().json(json!({"error":format!("fetch failed: {}", e)})); } };
+                    for (m,u) in list.into_iter().take(limit_manga) {
+                        let mut mm = m.clone(); mm.id = uuid::Uuid::new_v4().to_string();
+                        let _ = db::insert_manga(&tx, &mm);
+                        let msd = MangaSourceData { manga_id: mm.id.clone(), source_id: Source::Kagane as i32, source_manga_id: u.clone(), source_manga_url: u.clone() };
+                        let msd_id = match db::insert_manga_source_data(&tx, &msd) { Ok(id)=>id, Err(_)=>continue };
+                        let chs = crate::sources::kagane::get_chapters(client, &msd.source_manga_url).await.unwrap_or_default();
+                        let chs_limited: Vec<_> = chs.into_iter().take(limit_ch).collect();
+                        let _ = db::insert_chapters(&tx, msd_id, &chs_limited);
+                        manga_added += 1; ch_added += chs_limited.len();
+                    }
+                    let _ = tx.commit();
+                    return HttpResponse::Ok().json(json!({"source": source.to_string(), "manga_added": manga_added, "chapters_added": ch_added}));
+                }
+
+                // WP-Manga flow
                 let base = wp_base(&source).or_else(|| wp_manga_source_by_name(&source).map(|(_,b)| b.to_string()));
                 if base.is_none() { return HttpResponse::BadRequest().json(json!({"error":"unknown or non-wp source"})); }
                 let base = base.unwrap();
@@ -1839,6 +1927,33 @@ let (download_ok, download_error) = if let Ok(Some(row)) = rows.next() {
                     "metadata_linked_manga": meta_count,
                     "download": { "ok": download_ok, "detail": download_error }
                 }))
+            }))
+            .route("/import/kagane/series", web::get().to(|data: web::Data<AppState>, query: web::Query<std::collections::HashMap<String,String>>| async move {
+                use serde_json::json;
+                let url = match query.get("url") { Some(u)=>u, None=>return HttpResponse::BadRequest().json(json!({"error":"url is required"})) };
+                let limit_ch = query.get("chapters").and_then(|s| s.parse::<usize>().ok()).unwrap_or(3);
+                let client = &data.client;
+                let mut conn = data.db.lock().unwrap();
+                let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
+                // Derive a basic title from slug
+                let slug = url.trim_end_matches('/').rsplit('/').next().unwrap_or("");
+                let title = if slug.is_empty() { "Kagane Series".to_string() } else { slug.replace(['-','_'], " ") };
+                let manga = Manga { id: uuid::Uuid::new_v4().to_string(), title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None };
+                let _ = db::insert_manga(&tx, &manga);
+                // Kagane source MSD
+                let msd = MangaSourceData { manga_id: manga.id.clone(), source_id: Source::Kagane as i32, source_manga_id: url.clone(), source_manga_url: url.clone() };
+                let msd_id = match db::insert_manga_source_data(&tx, &msd) { Ok(id)=>id, Err(_)=>{ let _=tx.rollback(); return HttpResponse::InternalServerError().finish(); } };
+                // Chapters from Kagane
+                let chs = crate::sources::kagane::get_chapters(client, url).await.unwrap_or_default();
+                let chs_limited: Vec<_> = chs.into_iter().take(limit_ch).collect();
+                let _ = db::insert_chapters(&tx, msd_id, &chs_limited);
+                // External providers
+                for (sid, link) in crate::sources::kagane::extract_provider_links(client, url).await.into_iter().take(20) {
+                    let extra = MangaSourceData { manga_id: manga.id.clone(), source_id: sid, source_manga_id: link.clone(), source_manga_url: link };
+                    let _ = db::insert_manga_source_data(&tx, &extra);
+                }
+                let _ = tx.commit();
+                HttpResponse::Ok().json(json!({"ok":true, "manga_id": manga.id, "title": manga.title, "chapters_added": chs_limited.len()}))
             }))
         })
         .bind(&addr)

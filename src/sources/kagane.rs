@@ -140,17 +140,24 @@ pub async fn get_chapters(
         if let Ok(a_sel) = Selector::parse("a") {
             for a in document.select(&a_sel) {
                 if let Some(href) = a.value().attr("href") {
-                    if href.contains("/read/") || href.contains("/chapter/") {
+                    if href.contains("/reader/") || href.contains("/read/") || href.contains("/chapter/") {
                         let chapter_title = a.text().collect::<String>().trim().to_string();
-                        chapters.push(Chapter {
-                            id: 0,
-                            manga_source_data_id: 0,
-                            chapter_number: if chapter_title.is_empty() { href.to_string() } else { chapter_title },
-                            url: if href.starts_with("http") { href.to_string() } else { format!("{}{}", BASE_URL, href) },
-                            scraped: false,
-                        });
+                        let abs = if href.starts_with("http") { href.to_string() } else { format!("{}{}", BASE_URL, href) };
+                        chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: if chapter_title.is_empty() { href.to_string() } else { chapter_title }, url: abs, scraped: false });
                     }
                 }
+            }
+        }
+    }
+    // Streaming-flight fallback: scan raw HTML for reader URLs
+    if chapters.is_empty() {
+        let re = regex::Regex::new(r#"/series/[^"'\s<>]+/reader/[A-Za-z0-9]+"#).unwrap();
+        let mut seen = std::collections::HashSet::new();
+        for cap in re.captures_iter(&response) {
+            let rel = cap.get(0).unwrap().as_str();
+            if seen.insert(rel.to_string()) {
+                let url = format!("{}{}", BASE_URL, rel);
+                chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: rel.to_string(), url, scraped: false });
             }
         }
     }
@@ -211,21 +218,107 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
                 }
             }
         }
+        if items_in_page == 0 {
+            // Streaming-flight fallback: scan raw HTML text for /series/ slugs
+            let re = regex::Regex::new(r#"/series/([A-Za-z0-9]+)"#).unwrap();
+            use std::collections::HashSet;
+            let mut seen: HashSet<String> = HashSet::new();
+            for cap in re.captures_iter(&response) {
+                let slug = cap.get(1).unwrap().as_str();
+                if seen.insert(slug.to_string()) {
+                    let url = format!("{}/series/{}", BASE_URL, slug);
+                    let title = slug.replace(['-','_'], " ");
+                    out.push((Manga { id: String::new(), title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, url));
+                    items_in_page += 1;
+                }
+            }
+        }
         if items_in_page == 0 { break; }
         page += 1;
         if page > 50 { break; }
     }
 
-    // Fallback: parse sitemap for series links
+    // Fallback: parse sitemap for series links (best-effort; may be CF-protected)
     if out.is_empty() {
-        let sitemap = client.get(format!("{}/sitemap.xml", BASE_URL)).header("User-Agent", "rust_manga_scraper/0.1.0").send().await?.text().await?;
-        let re = regex::Regex::new(r"<loc>\s*(?P<loc>https?://[^<]+/series/[^<]+)\s*</loc>").unwrap();
-        for cap in re.captures_iter(&sitemap) {
-            let loc = cap.name("loc").unwrap().as_str().to_string();
-            let title = loc.split('/').last().unwrap_or("").replace('-', " ");
-            out.push((Manga { id: String::new(), title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, loc));
+        if let Ok(sitemap_resp) = client.get(format!("{}/sitemap.xml", BASE_URL)).header("User-Agent", "rust_manga_scraper/0.1.0").send().await {
+            if let Ok(sitemap) = sitemap_resp.text().await {
+                let re = regex::Regex::new(r"<loc>\s*(?P<loc>https?://[^<]+/series/[^<]+)\s*</loc>").unwrap();
+                for cap in re.captures_iter(&sitemap) {
+                    let loc = cap.name("loc").unwrap().as_str().to_string();
+                    let title = loc.split('/').last().unwrap_or("").replace('-', " ");
+                    out.push((Manga { id: String::new(), title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, loc));
+                }
+            }
         }
     }
 
     Ok(out)
+}
+
+/// Extract external provider links from a Kagane series page and map them to known source IDs.
+pub async fn extract_provider_links(client: &Client, series_url: &str) -> Vec<(i32, String)> {
+    let mut out: Vec<(i32,String)> = Vec::new();
+    let resp = match client
+        .get(series_url)
+        .header("User-Agent", "rust_manga_scraper/0.1.0")
+        .header("Cookie", "nsfw=true; consent=true")
+        .send()
+        .await
+    { Ok(r)=>r, Err(_)=>return out };
+    let text = match resp.text().await { Ok(t)=>t, Err(_)=>return out };
+    let doc = Html::parse_document(&text);
+    let a_sel = match Selector::parse("a") { Ok(s)=>s, Err(_)=>return out };
+
+    // Map of hostname substrings to source IDs (must align with DB 'sources' table)
+    let patterns: Vec<(&str, i32)> = vec![
+        ("mangadex.org", crate::models::Source::MangaDex as i32),
+        ("firescans", crate::models::Source::FireScans as i32),
+        ("rizzcomic", crate::models::Source::RizzComic as i32),
+        ("drakecomic", crate::models::Source::DrakeComic as i32),
+        ("asmotoon", crate::models::Source::Asmotoon as i32),
+        ("reset-scans", crate::models::Source::ResetScans as i32),
+        ("resetscans", crate::models::Source::ResetScans as i32),
+        ("templescan", crate::models::Source::TempleScan as i32),
+        ("thunderscans", crate::models::Source::ThunderScans as i32),
+        // WP-Manga group (IDs as per main mapping)
+        ("asurascans.com", 11),
+        ("kenscans.com", 25),
+        ("sirenscans.com", 43),
+        ("vortexscans", 56),
+        ("witchscans", 59),
+        ("qiscans", 38),
+        ("madarascans", 30),
+        ("rizzfables", 39),
+        ("rokaricomics", 40),
+        ("stonescape.xyz", 45),
+        ("manhuaus.com", 31),
+        ("grimscans.team", 19),
+        ("hivetoons.com", 20),
+        ("nyxscans.com", 34),
+    ];
+
+    let mut seen = std::collections::HashSet::new();
+    for a in doc.select(&a_sel) {
+        if let Some(href) = a.value().attr("href") {
+            let h = href.to_lowercase();
+            if !(h.starts_with("http://") || h.starts_with("https://")) { continue; }
+            if let Some((_, sid)) = patterns.iter().find(|(pat, _)| h.contains(*pat)) {
+                if seen.insert((sid, h.clone())) {
+                    out.push((*sid, href.to_string()));
+                }
+            }
+        }
+    }
+    // Regex fallback: scan all URLs in page text
+    let re = regex::Regex::new(r#"https?://[^"'\s<>]+"#).unwrap();
+    for cap in re.captures_iter(&text) {
+        let url = cap.get(0).unwrap().as_str().to_string();
+        let l = url.to_lowercase();
+        if let Some((_, sid)) = patterns.iter().find(|(pat, _)| l.contains(*pat)) {
+            if seen.insert((sid, l.clone())) {
+                out.push((*sid, url));
+            }
+        }
+    }
+    out
 }

@@ -126,40 +126,19 @@ pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Res
 }
 
 pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
-    // Try multiple URL patterns
+    // Try multiple URL patterns and parse each until we find results
     let url_patterns = vec![
+        "/", // Many sites list on root
+        "/?page=1",
         "/manga/?page=1",
         "/series?page=1",
-        "/?page=1",
-        "/",  // Just root for some sites
     ];
-    
-    let mut response_text = String::new();
-    for pattern in &url_patterns {
-        let url = base_url.to_owned() + pattern;
-        if let Ok(text) = fetch_text(client, &url).await {
-            let doc = Html::parse_document(&text);
-            let selector = Selector::parse("div.page-item-detail").unwrap();
-            if doc.select(&selector).next().is_some() {
-                response_text = text;
-                break;
-            }
-        }
-    }
-    
-    if response_text.is_empty() {
-        // Fallback to default if none worked
-        response_text = fetch_text(client, &format!("{}/manga/?page=1", base_url)).await?;
-    }
-    
-    let document = Html::parse_document(&response_text);
-    
-    // Try multiple selector patterns for different theme types
-    // Order matters: try most specific first
+
+    // Selector patterns to extract items from a fetched page
     let selector_patterns = vec![
         ("div.page-item-detail", "h3 > a"),          // Standard WP-Manga
-        ("div.page-listing-item", "h3 a"),           // MadaraProject theme (firescans, etc)
-        ("div.listupd .bs .bsx", "a"),               // MangaStream nested (rizzcomic)
+        ("div.page-listing-item", "h3 a"),           // MadaraProject theme
+        ("div.listupd .bs .bsx", "a"),               // MangaStream nested
         ("div.bsx", "a"),                             // MangaStream/MangaBuddy theme
         ("div.manga-item", "a.manga-link"),          // Custom theme
         ("div.utao .uta .imgu", "a"),                // MangaStream variant
@@ -167,43 +146,71 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
         ("div.post-item", "h2 a"),                    // Post-based layout
         ("div.series-item", "a.series-link"),        // Series layout
     ];
-    
-    let mut out = Vec::new();
-    
-    for (container_sel, link_sel) in &selector_patterns {
-        if let Ok(container_selector) = Selector::parse(container_sel) {
-            for element in document.select(&container_selector) {
-                if let Some(link_element) = element.select(&Selector::parse(link_sel).unwrap()).next() {
-                    let series_url = link_element.value().attr("href").unwrap_or("").to_string();
-                    
-                    let title: String = if *link_sel == "h3 > a" || *link_sel == "h3 a" || *link_sel == "h2 a" {
-                        link_element.text().collect::<String>().trim().to_string()
-                    } else {
-                        link_element.value().attr("title")
-                            .map(|s| s.to_string())
-                            .or_else(|| Some(link_element.text().collect::<String>().trim().to_string()))
-                            .unwrap_or_default()
-                    };
-                    
-                    let cover_url = element
-                        .select(&Selector::parse("img").unwrap())
-                        .next()
-                        .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
-                        .map(|s| s.to_string());
-                    
-                    if !series_url.is_empty() && !title.is_empty() {
-                        out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+
+    for pattern in &url_patterns {
+        let url = base_url.to_owned() + pattern;
+        if let Ok(text) = fetch_text(client, &url).await {
+            let document = Html::parse_document(&text);
+            let mut out = Vec::new();
+            for (container_sel, link_sel) in &selector_patterns {
+                if let Ok(container_selector) = Selector::parse(container_sel) {
+                    for element in document.select(&container_selector) {
+                        if let Some(link_element) = element.select(&Selector::parse(link_sel).unwrap()).next() {
+                            let series_url = link_element.value().attr("href").unwrap_or("").to_string();
+                            let title: String = if *link_sel == "h3 > a" || *link_sel == "h3 a" || *link_sel == "h2 a" {
+                                link_element.text().collect::<String>().trim().to_string()
+                            } else {
+                                link_element.value().attr("title")
+                                    .map(|s| s.to_string())
+                                    .or_else(|| Some(link_element.text().collect::<String>().trim().to_string()))
+                                    .unwrap_or_default()
+                            };
+                            let cover_url = element
+                                .select(&Selector::parse("img").unwrap())
+                                .next()
+                                .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
+                                .map(|s| s.to_string());
+                            if !series_url.is_empty() && !title.is_empty() {
+                                out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                            }
+                        }
+                    }
+                    if !out.is_empty() { return Ok(out); }
+                }
+            }
+            // Fallback: scan all anchors for likely series links if structured selectors failed
+            use std::collections::HashSet;
+            let mut seen: HashSet<String> = HashSet::new();
+            let a_sel = Selector::parse("a").unwrap();
+            for a in document.select(&a_sel) {
+                if let Some(href) = a.value().attr("href") {
+                    let h = href.trim();
+                    if h.is_empty() { continue; }
+                    // Heuristics: include links that look like series pages, exclude chapters/tags
+                    let l = h.to_lowercase();
+                    let looks_series = l.contains("/series/") || (l.contains("/manga/") && !l.contains("/chapter/"));
+                    if !looks_series { continue; }
+                    let mut title_text = a.value().attr("title").map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or_else(|| a.text().collect::<String>().trim().to_string());
+                    let series_url = if h.starts_with("http") { h.to_string() } else { format!("{}{}", base_url.trim_end_matches('/'), if h.starts_with('/') { h } else { &format!("/{}", h) }) };
+                    if title_text.is_empty() {
+                        // Derive from slug
+                        let slug = series_url.trim_end_matches('/').rsplit('/').next().unwrap_or("");
+                        if !slug.is_empty() { title_text = slug.replace(['-', '_'], " "); }
+                    }
+                    if title_text.is_empty() { continue; }
+                    if seen.insert(series_url.clone()) {
+                        out.push((Manga { id: String::new(), title: title_text, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
                     }
                 }
             }
-            
-            // If we found items with this pattern, stop trying others
-            if !out.is_empty() {
-                break;
-            }
+            if !out.is_empty() { return Ok(out); }
+            // If no selectors or fallbacks matched on this pattern, try next pattern
         }
     }
-    Ok(out)
+    // Nothing found across patterns
+    Ok(Vec::new())
 }
 
 fn derive_chapter_label(text: &str, href: &str) -> String {

@@ -1,5 +1,5 @@
 use crate::models::Source;
-use reqwest::Client;
+use reqwest::{Client, Url};
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::fs::File;
@@ -185,10 +185,21 @@ pub async fn download_chapter(
                 }
             }
 
-            for (i, image_url) in image_list.iter().enumerate() {
+            // Resolve relative image URLs and set a reasonable Referer per origin
+            let origin = Url::parse(chapter_url)
+                .ok()
+                .and_then(|u| Some(format!("{}://{}", u.scheme(), u.host_str()?)))
+                .unwrap_or_default();
+            for (i, src) in image_list.iter().enumerate() {
+                let full_url = if let Ok(base) = Url::parse(chapter_url) {
+                    base.join(src).map(|u| u.to_string()).unwrap_or_else(|_| src.clone())
+                } else {
+                    src.clone()
+                };
                 let response = client
-                    .get(image_url)
-                    .header("Referer", "https://firescans.xyz/")
+                    .get(&full_url)
+                    .header("Referer", if !origin.is_empty() { origin.as_str() } else { chapter_url })
+                    .header("User-Agent", "rust_manga_scraper/0.1.0")
                     .send()
                     .await?;
                 let mut cursor = Cursor::new(response.bytes().await?);
@@ -368,10 +379,18 @@ pub async fn download_chapter_to_memory(
                 image_list.push(image_url);
             }
 
-            for (i, image_url) in image_list.iter().enumerate() {
+            // Resolve relative image URLs and set a reasonable Referer per origin
+            let origin = reqwest::Url::parse(chapter_url)
+                .ok()
+                .and_then(|u| Some(format!("{}://{}", u.scheme(), u.host_str()?)))
+                .unwrap_or_default();
+            for (i, src) in image_list.iter().enumerate() {
+                let full_url = if let Ok(base) = reqwest::Url::parse(chapter_url) {
+                    base.join(src).map(|u| u.to_string()).unwrap_or_else(|_| src.clone())
+                } else { src.clone() };
                 let response = client
-                    .get(image_url)
-                    .header("Referer", "https://mangadex.org/")
+                    .get(&full_url)
+                    .header("Referer", if !origin.is_empty() { origin.as_str() } else { chapter_url })
                     .header("User-Agent", "rust_manga_scraper/0.1.0")
                     .send()
                     .await?;

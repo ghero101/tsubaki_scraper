@@ -101,8 +101,13 @@ pub fn spawn_full_crawl_with_filters(
                         let key = normalize_title(&m.title);
                         let entry = manga_map.entry(key.clone()).or_insert_with(|| Manga { id: uuid::Uuid::new_v4().to_string(), ..m.clone() });
                         if entry.cover_url.is_none() && m.cover_url.is_some() { entry.cover_url = m.cover_url.clone(); }
-                        let msd = MangaSourceData { manga_id: entry.id.clone(), source_id: Source::Kagane as i32, source_manga_id: url.clone(), source_manga_url: url };
-                        msd_map.entry(key).or_default().push(msd);
+                        // Kagane source itself
+                        let msd = MangaSourceData { manga_id: entry.id.clone(), source_id: Source::Kagane as i32, source_manga_id: url.clone(), source_manga_url: url.clone() };
+                        msd_map.entry(key.clone()).or_default().push(msd);
+                        // External providers discovered on Kagane series page
+                        for (sid, link) in crate::sources::kagane::extract_provider_links(client, &url).await.into_iter() {
+                            msd_map.entry(key.clone()).or_default().push(MangaSourceData { manga_id: entry.id.clone(), source_id: sid, source_manga_id: link.clone(), source_manga_url: link });
+                        }
                     }
                 },
                 Ok(Err(e)) => error!("kagane crawl error: {}", e),
