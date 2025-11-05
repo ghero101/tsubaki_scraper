@@ -6,9 +6,11 @@ mod scraper;
 mod sources;
 mod crawler;
 mod metadata;
-mod http_client;
-mod browser_client;
-mod source_utils;
+
+// Public modules for testing and external use
+pub mod http_client;
+pub mod browser_client;
+pub mod source_utils;
 use crate::sources::{
     asmotoon, drakecomic, firescans, kagane, kdtnovels, mangadex, reset_scans, rizzcomic, temple_scan, thunderscans,
 };
