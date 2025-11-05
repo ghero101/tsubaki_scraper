@@ -1,0 +1,44 @@
+# Tsubaki Scraper Configuration
+
+# Directory where manga downloads will be saved
+download_dir = "downloads"
+
+[bot_detection]
+# Enable enhanced HTTP client with retry logic and better headers
+enable_enhanced_client = true
+
+# Enable headless browser for JavaScript-rendered sites
+# Note: Requires Chrome/Chromium to be installed
+# Set to false if Chrome is not available
+enable_browser = false
+
+# Maximum number of retry attempts for failed requests
+max_retries = 4
+
+# Initial retry delay in milliseconds (exponential backoff)
+initial_retry_delay_ms = 500
+
+# Maximum retry delay in milliseconds
+max_retry_delay_ms = 8000
+
+# Timeout for HTTP requests in seconds
+timeout_secs = 30
+
+# Enable cookie support (recommended for session persistence)
+enable_cookies = true
+
+# Enable gzip/brotli compression (faster downloads)
+enable_compression = true
+
+# Browser timeout in seconds (for JavaScript-rendered sites)
+browser_timeout_secs = 30
+
+# Browser headless mode (true = no visible window)
+browser_headless = true
+
+# Disable images in browser for faster loading
+browser_disable_images = true
+
+# Rate limiting delay between requests in milliseconds
+# Helps avoid overwhelming servers and triggering rate limits
+rate_limit_delay_ms = 300

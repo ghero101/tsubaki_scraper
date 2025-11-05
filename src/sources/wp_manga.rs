@@ -6,15 +6,35 @@ use tokio::time::{sleep, Duration};
 
 async fn fetch_text(client: &Client, url: &str) -> Result<String, reqwest::Error> {
     let mut last_err: Option<reqwest::Error> = None;
-    let retry_delays = [200, 500, 1000, 2000]; // Exponential backoff in milliseconds
+    let retry_delays = [500, 1000, 2000, 4000]; // Exponential backoff in milliseconds
 
     for (attempt, &delay) in retry_delays.iter().enumerate() {
-        match client.get(url).send().await {
+        // Enhanced headers to bypass bot detection
+        let request = client.get(url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Accept-Encoding", "gzip, deflate, br")
+            .header("DNT", "1")
+            .header("Connection", "keep-alive")
+            .header("Upgrade-Insecure-Requests", "1")
+            .header("Sec-Fetch-Dest", "document")
+            .header("Sec-Fetch-Mode", "navigate")
+            .header("Sec-Fetch-Site", "none")
+            .header("Cache-Control", "max-age=0");
+
+        match request.send().await {
             Ok(resp) => {
                 let status = resp.status();
-                // For 503 errors, retry with longer delays
-                if status.as_u16() == 503 && attempt < retry_delays.len() - 1 {
-                    sleep(Duration::from_millis(delay * 2)).await;
+                // Retry on rate limiting, server errors, and Cloudflare errors
+                let is_retryable = matches!(
+                    status.as_u16(),
+                    429 | 500 | 502 | 503 | 504 | 520 | 521 | 522 | 523 | 524
+                );
+
+                if is_retryable && attempt < retry_delays.len() - 1 {
+                    log::warn!("Retryable status {} for {}, retrying in {}ms", status, url, delay);
+                    sleep(Duration::from_millis(delay)).await;
                     continue;
                 }
                 match resp.error_for_status() {
@@ -22,7 +42,16 @@ async fn fetch_text(client: &Client, url: &str) -> Result<String, reqwest::Error
                     Err(e) => { last_err = Some(e); }
                 }
             }
-            Err(e) => { last_err = Some(e); }
+            Err(e) => {
+                // Retry on network errors
+                if (e.is_timeout() || e.is_connect() || e.is_request()) && attempt < retry_delays.len() - 1 {
+                    log::warn!("Network error for {}, retrying in {}ms: {}", url, delay, e);
+                    sleep(Duration::from_millis(delay)).await;
+                    last_err = Some(e);
+                    continue;
+                }
+                last_err = Some(e);
+            }
         }
         if attempt < retry_delays.len() - 1 {
             sleep(Duration::from_millis(delay)).await;

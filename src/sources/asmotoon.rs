@@ -4,9 +4,29 @@ use crate::models::{Manga, Chapter};
 
 const BASE_URL: &str = "https://asmotoon.com";
 
+// NOTE: This site may require JavaScript rendering to load content properly.
+// If the standard HTTP approach fails, use the browser client:
+//
+// use crate::browser_client::BrowserClient;
+//
+// pub async fn search_manga_with_urls_browser(title: &str) -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+//     let browser = BrowserClient::new()?;
+//     let url = format!("{}/?s={}&post_type=wp-manga", BASE_URL, title);
+//     let html = browser.get_html(&url)?;
+//     Ok(parse_search_page(&html))
+// }
+
 pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     let url = format!("{}/?s={}&post_type=wp-manga", BASE_URL, title);
-    let response = client.get(&url).send().await?.text().await?;
+
+    // Enhanced headers to bypass bot detection
+    let response = client.get(&url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .header("Referer", BASE_URL)
+        .send().await?.text().await?;
+
     Ok(parse_search_page(&response))
 }
 
@@ -66,7 +86,14 @@ fn parse_search_page(html: &str) -> Vec<(Manga, String)> {
 }
 
 pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapter>, reqwest::Error> {
-    let response = client.get(manga_url).send().await?.text().await?;
+    // Enhanced headers to bypass bot detection
+    let response = client.get(manga_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .header("Referer", BASE_URL)
+        .send().await?.text().await?;
+
     let document = Html::parse_document(&response);
     let selector = Selector::parse("li.wp-manga-chapter").unwrap();
     let mut chapters = Vec::new();
