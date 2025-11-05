@@ -59,7 +59,7 @@ pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<
         }
         return Ok(out);
     }
-    // Crawl listing pages: try /manga/?page=n first, then fallback to /series
+    // Crawl listing pages: FireScans uses Madara theme
     let mut out = Vec::new();
     let mut page = 1u32;
     loop {
@@ -67,19 +67,34 @@ pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<
         let response = client.get(&url).send().await?.text().await?;
         let document = Html::parse_document(&response);
         let mut items = 0;
-        // firescans cards
-        for element in document.select(&Selector::parse("div.series-card").unwrap()) {
-            if let Some(title_element) = element.select(&Selector::parse("a.series-title").unwrap()).next() {
-                let title = title_element.text().collect::<String>().trim().to_string();
-                let series_url = title_element.value().attr("href").unwrap_or("").to_string();
-                let cover_url = element
-                    .select(&Selector::parse("img.series-poster").unwrap())
-                    .next()
-                    .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
-                    .map(|s| s.to_string());
-                if !series_url.is_empty() { items += 1; out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url)); }
+
+        // Try multiple selector patterns
+        let selectors = vec![
+            ("div.page-item-detail", "h3 > a, h5 > a, .post-title a"),
+            ("div.page-listing-item", "h3 a, h5 a"),
+        ];
+
+        for (container_sel, link_sel) in &selectors {
+            if let Ok(container_selector) = Selector::parse(container_sel) {
+                for element in document.select(&container_selector) {
+                    if let (Ok(_link_selector), Some(title_element)) = (Selector::parse(link_sel), element.select(&Selector::parse(link_sel).unwrap()).next()) {
+                        let title = title_element.text().collect::<String>().trim().to_string();
+                        let series_url = title_element.value().attr("href").unwrap_or("").to_string();
+                        let cover_url = element
+                            .select(&Selector::parse("img").unwrap())
+                            .next()
+                            .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
+                            .map(|s| s.to_string());
+                        if !series_url.is_empty() && !title.is_empty() {
+                            items += 1;
+                            out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                        }
+                    }
+                }
             }
+            if items > 0 { break; }
         }
+
         if items == 0 { break; }
         page += 1;
         if page > 50 { break; }
