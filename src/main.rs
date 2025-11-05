@@ -6,6 +6,7 @@ mod scraper;
 mod sources;
 mod crawler;
 mod metadata;
+mod metrics;
 
 // Public modules for testing and external use
 pub mod http_client;
@@ -1263,6 +1264,70 @@ async fn get_stats(data: web::Data<AppState>) -> impl Responder {
     }))
 }
 
+#[get("/metrics")]
+async fn get_metrics(data: web::Data<AppState>) -> impl Responder {
+    let all_metrics = data.metrics.get_all_metrics();
+
+    let metrics_json: Vec<serde_json::Value> = all_metrics.iter().map(|m| {
+        serde_json::json!({
+            "source_name": m.source_name,
+            "success_rate": format!("{:.2}%", m.success_rate()),
+            "total_requests": m.total_requests,
+            "successful_requests": m.successful_requests,
+            "failed_requests": m.failed_requests,
+            "average_response_time_ms": format!("{:.2}", m.average_response_time_ms),
+            "retry_count": m.retry_count,
+            "rate_limit_hits": m.rate_limit_hits,
+            "cloudflare_challenges": m.cloudflare_challenges,
+            "timeout_count": m.timeout_count,
+            "last_success": m.last_success,
+            "last_failure": m.last_failure,
+            "last_error": m.last_error,
+        })
+    }).collect();
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "metrics": metrics_json,
+        "total_sources_tracked": all_metrics.len()
+    }))
+}
+
+#[get("/metrics/summary")]
+async fn get_metrics_summary(data: web::Data<AppState>) -> impl Responder {
+    use std::fmt::Write;
+
+    let all_metrics = data.metrics.get_all_metrics();
+    let mut summary = String::new();
+
+    writeln!(&mut summary, "\n=== Source Performance Summary ===\n").unwrap();
+
+    let mut sorted_metrics = all_metrics.clone();
+    sorted_metrics.sort_by(|a, b| {
+        b.success_rate().partial_cmp(&a.success_rate()).unwrap()
+    });
+
+    for m in sorted_metrics {
+        writeln!(&mut summary, "Source: {}", m.source_name).unwrap();
+        writeln!(&mut summary, "  Success Rate: {:.2}%", m.success_rate()).unwrap();
+        writeln!(&mut summary, "  Total Requests: {}", m.total_requests).unwrap();
+        writeln!(&mut summary, "  Successful: {}", m.successful_requests).unwrap();
+        writeln!(&mut summary, "  Failed: {}", m.failed_requests).unwrap();
+        writeln!(&mut summary, "  Avg Response Time: {:.2}ms", m.average_response_time_ms).unwrap();
+        writeln!(&mut summary, "  Retries: {}", m.retry_count).unwrap();
+        writeln!(&mut summary, "  Rate Limit Hits: {}", m.rate_limit_hits).unwrap();
+        writeln!(&mut summary, "  Cloudflare Challenges: {}", m.cloudflare_challenges).unwrap();
+        writeln!(&mut summary, "  Timeouts: {}", m.timeout_count).unwrap();
+        if let Some(ref last_error) = m.last_error {
+            writeln!(&mut summary, "  Last Error: {}", last_error).unwrap();
+        }
+        writeln!(&mut summary).unwrap();
+    }
+
+    HttpResponse::Ok()
+        .content_type("text/plain")
+        .body(summary)
+}
+
 #[get("/download/{manga_id}/{chapter_number}/{source_id}")]
 async fn download_from_source(
     data: web::Data<AppState>,
@@ -1389,6 +1454,8 @@ pub struct MetadataProgress {
 pub struct AppState {
     db: Mutex<Connection>,
     client: Client,
+    enhanced_client: crate::http_client::EnhancedHttpClient,
+    metrics: crate::metrics::MetricsTracker,
     config: crate::config::Config,
     crawl_progress: Mutex<crawler::CrawlProgress>,
     metadata_progress: Mutex<MetadataProgress>,
@@ -1441,9 +1508,23 @@ async fn main() -> std::io::Result<()> {
 
     let cfg = config::Config::load();
 
+    // Create enhanced HTTP client from configuration
+    let enhanced_client = cfg.bot_detection.create_http_client()
+        .expect("Failed to create enhanced HTTP client");
+
+    // Create metrics tracker
+    let metrics = crate::metrics::MetricsTracker::new();
+
+    log::info!("Enhanced HTTP client initialized:");
+    log::info!("  Max retries: {}", cfg.bot_detection.max_retries);
+    log::info!("  Timeout: {}s", cfg.bot_detection.timeout_secs);
+    log::info!("  Browser enabled: {}", cfg.bot_detection.enable_browser);
+
     let data = web::Data::new(AppState {
         db: Mutex::new(conn),
         client,
+        enhanced_client,
+        metrics,
         config: cfg,
         crawl_progress: Mutex::new(crawler::CrawlProgress::default()),
         metadata_progress: Mutex::new(MetadataProgress::default()),
@@ -1466,6 +1547,8 @@ async fn main() -> std::io::Result<()> {
             .service(get_manga)
             .service(get_chapters)
             .service(get_stats)
+            .service(get_metrics)
+            .service(get_metrics_summary)
             .service(download)
             .service(download_from_source)
             .service(monitor_manga)
