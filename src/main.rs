@@ -66,7 +66,7 @@ fn wp_manga_source_by_name(name: &str) -> Option<(i32, &'static str)> {
         "sirenscans" | "siren-scans" => Some((43, "https://sirenscans.com")),
         "vortexscans" | "vortex-scans" => Some((56, "https://vortexscans.com")),
         "witchscans" | "witch-scans" => Some((59, "https://witchscans.com")),
-        "qiscans" | "qi-scans" => Some((38, "https://qiscans.com")),
+        "qiscans" | "qi-scans" => Some((38, "https://qiscans.org")),
         "madarascans" => Some((30, "https://madarascans.com")),
         "rizzfables" => Some((39, "https://rizzfables.com")),
         "rokaricomics" | "rokari-comics" => Some((40, "https://rokaricomics.com")),
@@ -1428,8 +1428,9 @@ async fn main() -> std::io::Result<()> {
     db::create_tables(&conn).unwrap();
 
     let client = reqwest::Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36")
-        .timeout(std::time::Duration::from_secs(20))
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+        .timeout(std::time::Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .unwrap();
 
@@ -1479,7 +1480,7 @@ async fn main() -> std::io::Result<()> {
                         "drakecomic" => Some("https://drakecomic.org".to_string()),
                         "asmotoon" => Some("https://asmotoon.com".to_string()),
                         "reset-scans" | "resetscans" => Some("https://reset-scans.org".to_string()),
-                        "temple-scan" | "templescan" => Some("https://templescan.net".to_string()),
+                        "temple-scan" | "templescan" => Some("https://templetoons.com".to_string()),
                         "thunderscans" | "thunder-scans" => Some("https://thunderscans.com".to_string()),
                         _ => None,
                     }
@@ -1773,7 +1774,7 @@ async fn main() -> std::io::Result<()> {
                         "drakecomic" => Some("https://drakecomic.org".to_string()),
                         "asmotoon" => Some("https://asmotoon.com".to_string()),
                         "reset-scans" | "resetscans" => Some("https://reset-scans.org".to_string()),
-                        "temple-scan" | "templescan" => Some("https://templescan.net".to_string()),
+                        "temple-scan" | "templescan" => Some("https://templetoons.com".to_string()),
                         "thunderscans" => Some("https://thunderscans.com".to_string()),
                         _ => None,
                     }
