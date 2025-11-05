@@ -256,6 +256,44 @@ pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapte
         }
     }
 
+    // Fallback: look for "Read First/Last" buttons and generate chapter range
+    if chapters.is_empty() {
+        if let Ok(a_sel) = Selector::parse("a[id='btn-read-first'], a[id='btn-read-last']") {
+            let mut first_num = 1u32;
+            let mut last_num = 1u32;
+
+            for a in document.select(&a_sel) {
+                if let Some(href) = a.value().attr("href") {
+                    // Extract chapter number from URL like ".../chapter-13/"
+                    if let Some(cap) = Regex::new(r"chapter-(\d+)").unwrap().captures(href) {
+                        if let Ok(num) = cap[1].parse::<u32>() {
+                            if a.value().attr("id") == Some("btn-read-first") {
+                                last_num = num;
+                            } else {
+                                first_num = num;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Generate all chapters in range
+            if last_num >= first_num && last_num > 0 {
+                let manga_base = manga_url.trim_end_matches('/');
+                for n in first_num..=last_num {
+                    let chapter_url = format!("{}/chapter-{}/", manga_base, n);
+                    chapters.push(Chapter {
+                        id: 0,
+                        manga_source_data_id: 0,
+                        chapter_number: format!("Chapter {}", n),
+                        url: chapter_url,
+                        scraped: false,
+                    });
+                }
+            }
+        }
+    }
+
     if chapters.is_empty() {
         // Try WP-Manga AJAX for some FireScans deployments
         let mut post_id: Option<String> = None;

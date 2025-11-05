@@ -1,28 +1,28 @@
 {
-  "timestamp": "2025-11-05T19:58:25.437654996+00:00",
+  "timestamp": "2025-11-05T20:43:37.491233292+00:00",
   "total_sources": 23,
-  "working_sources": 8,
-  "failed_sources": 15,
+  "working_sources": 7,
+  "failed_sources": 16,
   "results": [
     {
       "source_name": "MangaDex",
       "status": "WORKING",
       "manga_count": 10,
-      "total_chapters": 204,
-      "duration_ms": 2592,
+      "total_chapters": 1503,
+      "duration_ms": 10122,
       "error": null,
       "sample_manga": [
-        "Ore no Yubisaki de Nureru Sekai",
-        "Shachou to Sake to Hoshi",
-        "Kamikakushi no Eden"
+        "Maou ni Natta node, Dungeon Tsukutte Jingai Musume to Honobono Suru",
+        "Yankee JK Kuzuhana-chan",
+        "The Idol and Her Egg Problem"
       ]
     },
     {
       "source_name": "FireScans",
       "status": "WORKING",
       "manga_count": 10,
-      "total_chapters": 0,
-      "duration_ms": 38862,
+      "total_chapters": 110,
+      "duration_ms": 19953,
       "error": null,
       "sample_manga": [
         "I’m Super Rich, So Being A Trash Man Is Reasonable, Right?",
@@ -35,7 +35,7 @@
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 109,
-      "duration_ms": 9041,
+      "duration_ms": 47899,
       "error": null,
       "sample_manga": [
         "The Turn-Bound Mage",
@@ -48,7 +48,7 @@
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 144,
-      "duration_ms": 89969,
+      "duration_ms": 89962,
       "error": null,
       "sample_manga": [
         "“Okaeri, Papa”\t\t\t\n\t\t\t\n\t\t\t\tChapter 24\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t9.3",
@@ -58,23 +58,19 @@
     },
     {
       "source_name": "Manhuaus",
-      "status": "WORKING",
-      "manga_count": 10,
-      "total_chapters": 846,
-      "duration_ms": 145833,
-      "error": null,
-      "sample_manga": [
-        "Archmage Transcending Through Regression",
-        "Monster Pet Evolution",
-        "Soul Land V"
-      ]
+      "status": "ERROR",
+      "manga_count": 0,
+      "total_chapters": 0,
+      "duration_ms": 95712,
+      "error": "request or response body error: error reading a body from connection: unexpected EOF during chunk size line",
+      "sample_manga": []
     },
     {
       "source_name": "RokariComics",
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 69,
-      "duration_ms": 9986,
+      "duration_ms": 9616,
       "error": null,
       "sample_manga": [
         "101st Confession",
@@ -86,8 +82,8 @@
       "source_name": "StoneScape",
       "status": "WORKING",
       "manga_count": 10,
-      "total_chapters": 0,
-      "duration_ms": 27357,
+      "total_chapters": 3,
+      "duration_ms": 24416,
       "error": null,
       "sample_manga": [
         "Noa-senpai wa Tomodachi.",
@@ -100,7 +96,7 @@
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 181,
-      "duration_ms": 55788,
+      "duration_ms": 13670,
       "error": null,
       "sample_manga": [
         "A Modern Man Who Got Transmigrated To Murim",
@@ -113,7 +109,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 1241,
+      "duration_ms": 1274,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -122,7 +118,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 798,
+      "duration_ms": 810,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -131,7 +127,7 @@
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 18786,
+      "duration_ms": 17905,
       "error": "HTTP status server error (503 Service Unavailable) for url (https://kencomics.com/manga/?page=1)",
       "sample_manga": []
     },
@@ -140,7 +136,7 @@
       "status": "NOT_FOUND",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 37162,
+      "duration_ms": 37840,
       "error": "HTTP status client error (404 Not Found) for url (https://qiscans.org/manga?page=1)",
       "sample_manga": []
     },
@@ -149,7 +145,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 670,
+      "duration_ms": 642,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -158,7 +154,7 @@
       "status": "FORBIDDEN",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 16079,
+      "duration_ms": 16440,
       "error": "HTTP status client error (403 Forbidden) for url (https://drakecomic.org/manga/?page=1)",
       "sample_manga": []
     },
@@ -167,7 +163,7 @@
       "status": "FORBIDDEN",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 15542,
+      "duration_ms": 14603,
       "error": "HTTP status client error (403 Forbidden) for url (https://madarascans.com/manga/?page=1)",
       "sample_manga": []
     },
@@ -176,7 +172,7 @@
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 18091,
+      "duration_ms": 18007,
       "error": "HTTP status server error (503 Service Unavailable) for url (https://rizzfables.com/manga/?page=1)",
       "sample_manga": []
     },
@@ -185,7 +181,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 286,
+      "duration_ms": 314,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -194,7 +190,7 @@
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 16343,
+      "duration_ms": 16370,
       "error": "HTTP status server error (503 Service Unavailable) for url (https://asurascans.com/manga/?page=1)",
       "sample_manga": []
     },
@@ -203,7 +199,7 @@
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 15764,
+      "duration_ms": 24405,
       "error": "HTTP status server error (503 Service Unavailable) for url (https://sirenscans.com/manga/?page=1)",
       "sample_manga": []
     },
@@ -212,7 +208,7 @@
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 18708,
+      "duration_ms": 35608,
       "error": "HTTP status server error (503 Service Unavailable) for url (https://vortexscans.org/manga/?page=1)",
       "sample_manga": []
     },
@@ -221,7 +217,7 @@
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 14227,
+      "duration_ms": 14168,
       "error": "HTTP status server error (503 Service Unavailable) for url (https://grimscans.team/manga/?page=1)",
       "sample_manga": []
     },
@@ -230,7 +226,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 551,
+      "duration_ms": 321,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -239,7 +235,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 1600,
+      "duration_ms": 969,
       "error": "No manga returned from source",
       "sample_manga": []
     }
