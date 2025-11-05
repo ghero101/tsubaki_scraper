@@ -8,3 +8,5 @@ pub mod sources_browser;
 pub mod metrics;
 pub mod config;
 pub mod models;
+pub mod sources;
+pub mod scraper;
