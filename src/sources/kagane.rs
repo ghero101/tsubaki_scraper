@@ -175,6 +175,7 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
             format!("{}/series?page={}", BASE_URL, page),
         ];
         let mut items_in_page = 0;
+        let mut last_response = String::new();
         for url in urls {
             let response = client
                 .get(&url)
@@ -184,6 +185,7 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
                 .await?
                 .text()
                 .await?;
+            last_response = response.clone();
             let document = Html::parse_document(&response);
             let a_sel = Selector::parse("a").unwrap();
             for a in document.select(&a_sel) {
@@ -223,7 +225,7 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
             let re = regex::Regex::new(r#"/series/([A-Za-z0-9]+)"#).unwrap();
             use std::collections::HashSet;
             let mut seen: HashSet<String> = HashSet::new();
-            for cap in re.captures_iter(&response) {
+            for cap in re.captures_iter(&last_response) {
                 let slug = cap.get(1).unwrap().as_str();
                 if seen.insert(slug.to_string()) {
                     let url = format!("{}/series/{}", BASE_URL, slug);
