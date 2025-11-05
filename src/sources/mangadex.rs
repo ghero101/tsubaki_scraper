@@ -179,13 +179,12 @@ pub async fn search_all_manga(client: &Client, base_url: &str) -> Result<Vec<Man
     loop {
         if offset >= max_offset { break; }
 
-        let url = format!("{}/manga", base_url);
+        let url = format!("{}/manga?limit={}&offset={}&includes[]=cover_art", base_url, limit, offset);
         let mut attempt = 0;
         let list = loop {
             attempt += 1;
             let resp = client
                 .get(&url)
-                .query(&[("includes[]", "cover_art"), ("limit", &limit.to_string()), ("offset", &offset.to_string())])
                 .send()
                 .await;
             match resp {

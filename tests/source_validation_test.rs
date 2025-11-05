@@ -32,6 +32,7 @@ macro_rules! test_source {
     ($source_mod:ident, $source_name:expr) => {{
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
+            .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
             .build()
             .expect("Failed to create HTTP client");
 
@@ -222,6 +223,7 @@ async fn test_all_sources_comprehensive() {
 async fn test_mangadex() -> SourceTestResult {
     let client = Client::builder()
         .timeout(Duration::from_secs(30))
+        .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
         .build()
         .expect("Failed to create HTTP client");
 

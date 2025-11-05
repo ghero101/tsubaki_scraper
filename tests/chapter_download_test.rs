@@ -34,6 +34,7 @@ macro_rules! test_download {
     ($source_mod:ident, $source_name:expr, $source_id:expr) => {{
         let client = Client::builder()
             .timeout(Duration::from_secs(60))
+            .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
             .build()
             .expect("Failed to create HTTP client");
 
@@ -223,6 +224,7 @@ async fn test_all_chapter_downloads() {
 async fn test_download_mangadex() -> DownloadTestResult {
     let client = Client::builder()
         .timeout(Duration::from_secs(60))
+        .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
         .build()
         .expect("Failed to create HTTP client");
 
