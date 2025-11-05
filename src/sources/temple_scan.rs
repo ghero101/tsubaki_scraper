@@ -3,7 +3,7 @@ use scraper::{Html, Selector};
 use crate::models::{Manga, Chapter};
 use regex::Regex;
 
-const BASE_URL: &str = "https://templescan.net";
+const BASE_URL: &str = "https://templetoons.com";
 
 pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     if !title.trim().is_empty() {

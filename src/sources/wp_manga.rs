@@ -6,9 +6,17 @@ use tokio::time::{sleep, Duration};
 
 async fn fetch_text(client: &Client, url: &str) -> Result<String, reqwest::Error> {
     let mut last_err: Option<reqwest::Error> = None;
-    for _ in 0..3 {
+    let retry_delays = [200, 500, 1000, 2000]; // Exponential backoff in milliseconds
+
+    for (attempt, &delay) in retry_delays.iter().enumerate() {
         match client.get(url).send().await {
             Ok(resp) => {
+                let status = resp.status();
+                // For 503 errors, retry with longer delays
+                if status.as_u16() == 503 && attempt < retry_delays.len() - 1 {
+                    sleep(Duration::from_millis(delay * 2)).await;
+                    continue;
+                }
                 match resp.error_for_status() {
                     Ok(ok) => { return ok.text().await; }
                     Err(e) => { last_err = Some(e); }
@@ -16,7 +24,9 @@ async fn fetch_text(client: &Client, url: &str) -> Result<String, reqwest::Error
             }
             Err(e) => { last_err = Some(e); }
         }
-        sleep(Duration::from_millis(200)).await;
+        if attempt < retry_delays.len() - 1 {
+            sleep(Duration::from_millis(delay)).await;
+        }
     }
     Err(last_err.unwrap())
 }
