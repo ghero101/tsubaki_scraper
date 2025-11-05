@@ -174,7 +174,11 @@ pub async fn search_all_manga(client: &Client, base_url: &str) -> Result<Vec<Man
     let mut out: Vec<Manga> = Vec::new();
     let mut offset = 0u32;
     let limit = 100u32;
+    let max_offset = 200u32; // Limit to 200 manga to avoid infinite loops
+
     loop {
+        if offset >= max_offset { break; }
+
         let url = format!("{}/manga", base_url);
         let mut attempt = 0;
         let list = loop {
@@ -190,18 +194,24 @@ pub async fn search_all_manga(client: &Client, base_url: &str) -> Result<Vec<Man
                     match ok {
                         Ok(rr) => {
                             let text = rr.text().await?;
-                            if let Ok(parsed) = serde_json::from_str::<MangaList>(&text) {
-                                break parsed.data;
-                            } else {
-                                break Vec::new();
+                            match serde_json::from_str::<MangaList>(&text) {
+                                Ok(parsed) => {
+                                    break parsed.data;
+                                }
+                                Err(e) => {
+                                    log::error!("MangaDex parse error: {}", e);
+                                    if attempt >= 3 { break Vec::new(); }
+                                }
                             }
                         }
-                        Err(_) => {
+                        Err(e) => {
+                            log::error!("MangaDex HTTP error: {}", e);
                             if attempt >= 3 { break Vec::new(); }
                         }
                     }
                 }
-                Err(_) => {
+                Err(e) => {
+                    log::error!("MangaDex request error: {}", e);
                     if attempt >= 3 { break Vec::new(); }
                 }
             }
