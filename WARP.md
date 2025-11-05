@@ -2,6 +2,65 @@
 
 This file provides guidance to WARP (warp.dev) when working with code in this repository.
 
+## 📊 Project Status (Last Updated: 2025-11-05 Evening)
+
+### Working Sources: 7-9 confirmed
+1. **MangaDex** (1) - 4,086 manga, 216,294 chapters ✓
+2. **FireScans** (2) - 221 manga ✓
+3. **RizzComic** (3) - 14,160 manga ✓
+4. **ResetScans** (9) - 3,586 manga, 133,571 chapters ✓
+5. **Manhuaus** (31) - 1,262 manga, 138,141 chapters ✓
+6. **Rokari Comics** (40) - 40 manga ✓
+7. **StoneScape** (45) - 40 manga ✓
+8. **Witch Scans** (59) - 40 manga ✓
+9. **TempleToons** (49) - Alias fixed, needs rebuild/test ⏳
+
+### Recent Improvements (2025-11-05)
+- ✅ Fixed domain redirects (qiscans.com → .org, templescan.net → templetoons.com)
+- ✅ Enhanced retry logic (4 attempts with exponential backoff: 200ms → 500ms → 1s → 2s)
+- ✅ Improved HTTP client (30s timeout, redirect handling, Chrome 131 UA)
+- ✅ Refactored drakecomic to use wp_manga base (92 lines → 13 lines)
+- ✅ Enhanced Kagane scraper with better error handling and selectors
+- ✅ Added robust image download retry logic in scraper
+- ✅ Added templetoons alias to parse_source function
+- ✅ Discovered Next.js embedded JSON parsing approach
+
+### Known Issues & Solutions
+
+#### Next.js Sites (5 sources) ⭐ BREAKTHROUGH
+**Sites**: qiscans, nyxscans, kenscans, asmotoon(?), hivetoons(?)
+**Problem**: Client-side React with embedded JSON data
+**Solution**: Parse embedded JSON from `<script>` tags containing `self.__next_f.push([...])`
+**Status**: Investigation complete, implementation needed
+**Estimated Fix**: 4-6 hours development
+
+#### WordPress Sites (8 sources)
+**Sites**: asurascans, grimscans, sirenscans, vortexscans, thunderscans, madarascans, rizzfables, drakecomic
+**Problem**: Returning NO DATA (various causes)
+**Possible Issues**: Down (503), Cloudflare (403), wrong URLs, different themes
+**Solution**: Site-by-site diagnosis needed
+**Status**: Needs investigation
+**Estimated Fix**: 2-3 hours diagnosis
+
+#### Cloudflare Protected (subset of above)
+**Sites**: drakecomic, madarascans, potentially others
+**Problem**: 403 Forbidden with CF challenge
+**Solution**: Cloudflare bypass library, request throttling, better headers
+**Status**: Needs research
+**Estimated Fix**: 3-4 hours implementation
+
+### Database Stats
+- **23,435+ manga** across all sources
+- **488,106+ chapters** catalogued
+- **10+ theme patterns** supported in wp_manga module
+- **30+ sources** configured (7-9 actively working)
+
+### Path to 100% Coverage
+1. **Phase 1**: Implement Next.js parser → +5 sources (12-14 total)
+2. **Phase 2**: Fix WordPress sites → +4-6 sources (16-20 total)
+3. **Phase 3**: Cloudflare bypass → +2-3 sources (18-23 total)
+**Total Estimated Effort**: 9-13 hours
+
 ## Common commands
 
 - Build: `cargo build`

@@ -53,7 +53,7 @@ fn parse_source(s: &str) -> Option<Source> {
         "asmotoon" => Some(Source::Asmotoon),
         "resetscans" | "reset-scans" => Some(Source::ResetScans),
         "kagane" => Some(Source::Kagane),
-        "temple-scan" | "templescan" => Some(Source::TempleScan),
+        "temple-scan" | "templescan" | "templetoons" => Some(Source::TempleScan),
         "thunderscans" | "thunder-scans" => Some(Source::ThunderScans),
         _ => None,
     }
