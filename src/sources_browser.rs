@@ -618,6 +618,18 @@ pub mod kagane_browser {
                     let title = a.text().collect::<String>().trim().to_string();
                     let series_url = format!("{}{}", BASE_URL, href);
 
+                    // Determine final title, filtering out hash-like slugs
+                    let final_title = if title.is_empty() {
+                        let slug = href.trim_start_matches("/series/");
+                        // Skip hash-like slugs (all uppercase alphanumeric, 20+ chars)
+                        if slug.len() > 20 && slug.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+                            continue; // Skip this result entirely
+                        }
+                        slug.replace(['-', '_'], " ")
+                    } else {
+                        title
+                    };
+
                     let cover_url = a.select(&Selector::parse("img").unwrap())
                         .next()
                         .and_then(|img| img.value().attr("src").or_else(|| img.value().attr("data-src")))
@@ -626,11 +638,7 @@ pub mod kagane_browser {
                     results.push((
                         Manga {
                             id: String::new(),
-                            title: if title.is_empty() {
-                                href.trim_start_matches("/series/").to_string()
-                            } else {
-                                title
-                            },
+                            title: final_title,
                             alt_titles: None,
                             cover_url,
                             description: None,

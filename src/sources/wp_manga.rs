@@ -66,6 +66,12 @@ fn clean_manga_title(title: &str) -> Option<String> {
         return None;
     }
 
+    // Skip short numeric-only titles (likely page numbers or navigation)
+    // Allow longer numeric titles like "86" (2 chars) but filter out very short ones
+    if cleaned.len() <= 3 && cleaned.chars().all(|c| c.is_numeric()) {
+        return None;
+    }
+
     // Skip common navigation/UI elements
     let skip_list = [
         "next", "prev", "previous", "home", "menu", "search", "login", "register",
