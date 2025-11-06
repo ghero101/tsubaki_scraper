@@ -131,6 +131,13 @@ pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Res
                         // Clean up excessive whitespace and normalize title
                         title = title.split_whitespace().collect::<Vec<_>>().join(" ");
 
+                        // Remove hash/slug IDs from end (8+ hex chars at end)
+                        if let Some(last_word) = title.split_whitespace().last() {
+                            if last_word.len() >= 8 && last_word.chars().all(|c| c.is_ascii_hexdigit()) {
+                                title = title.trim_end_matches(last_word).trim().to_string();
+                            }
+                        }
+
                         // Skip if title is just numbers (likely page numbers or ratings)
                         if title.chars().all(|c| c.is_ascii_digit() || c == '.') {
                             continue;
@@ -212,6 +219,13 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                             // Clean up excessive whitespace
                             title = title.split_whitespace().collect::<Vec<_>>().join(" ");
 
+                            // Remove hash/slug IDs from end (8+ hex chars at end)
+                            if let Some(last_word) = title.split_whitespace().last() {
+                                if last_word.len() >= 8 && last_word.chars().all(|c| c.is_ascii_hexdigit()) {
+                                    title = title.trim_end_matches(last_word).trim().to_string();
+                                }
+                            }
+
                             // Skip if title is just numbers (likely page numbers or ratings)
                             if title.chars().all(|c| c.is_ascii_digit() || c == '.') {
                                 continue;
@@ -254,6 +268,13 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
 
                     // Clean up excessive whitespace
                     title_text = title_text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+                    // Remove hash/slug IDs from end (8+ hex chars at end)
+                    if let Some(last_word) = title_text.split_whitespace().last() {
+                        if last_word.len() >= 8 && last_word.chars().all(|c| c.is_ascii_hexdigit()) {
+                            title_text = title_text.trim_end_matches(last_word).trim().to_string();
+                        }
+                    }
 
                     // Skip if title is just numbers (likely page numbers or ratings)
                     if title_text.chars().all(|c| c.is_ascii_digit() || c == '.') {
