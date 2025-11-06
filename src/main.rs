@@ -12,6 +12,7 @@ mod metrics;
 pub mod http_client;
 pub mod browser_client;
 pub mod source_utils;
+pub mod sources_browser;
 use crate::sources::{
     asmotoon, drakecomic, firescans, kagane, kdtnovels, mangadex, reset_scans, rizzcomic, temple_scan, thunderscans,
 };
