@@ -4,6 +4,85 @@ use crate::models::{Manga, Chapter};
 use regex::Regex;
 use tokio::time::{sleep, Duration};
 
+/// Clean manga title by removing common metadata, badges, and navigation elements
+pub fn clean_manga_title_public(title: &str) -> Option<String> {
+    clean_manga_title(title)
+}
+
+fn clean_manga_title(title: &str) -> Option<String> {
+    let mut cleaned = title.to_string();
+
+    // Normalize whitespace first
+    cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    // Remove common prefixes
+    let prefixes = [
+        "MANHWA", "MANHUA", "MANGA", "Manhua", "Manga",
+        "cover art not final", "Read free!", "Comics",
+        "🔥 Hot", "Hot", "NEW", "New"
+    ];
+    for prefix in &prefixes {
+        if cleaned.to_lowercase().starts_with(&prefix.to_lowercase()) {
+            cleaned = cleaned[prefix.len()..].trim().to_string();
+        }
+    }
+
+    // Remove ratings at end (e.g., "9.3", "9.98", "10")
+    let rating_re = Regex::new(r"\s*\d+\.?\d*\s*$").unwrap();
+    cleaned = rating_re.replace(&cleaned, "").to_string();
+
+    // Remove "Chapter X" patterns at end
+    let chapter_re = Regex::new(r"\s*Chapter\s+\d+\.?\d*\s*$").unwrap();
+    cleaned = chapter_re.replace(&cleaned, "").to_string();
+
+    // Remove genre/category tags at end (Drama, Action, Romance, etc.)
+    let genre_re = Regex::new(r"\s*(Drama|Action|Romance|Fantasy|Comedy|Horror|Thriller|Mystery|Shoujo|Shounen|Seinen|Josei|Webtoon)\s*$").unwrap();
+    cleaned = genre_re.replace(&cleaned, "").to_string();
+
+    // Remove "Start reading" and similar CTAs
+    let cta_re = Regex::new(r"(Start [Rr]eading.*|Read Now.*|Add to Library.*)$").unwrap();
+    cleaned = cta_re.replace(&cleaned, "").to_string();
+
+    // Remove rating indicators
+    let rating_text_re = Regex::new(r"\d+Rating\d*Chapters?").unwrap();
+    cleaned = rating_text_re.replace(&cleaned, "").to_string();
+
+    // Normalize whitespace again after removals
+    cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+    cleaned = cleaned.trim().to_string();
+
+    // Skip if empty or too short
+    if cleaned.is_empty() || cleaned.len() < 2 {
+        return None;
+    }
+
+    // Skip if only special characters or numbers
+    if cleaned.chars().all(|c| !c.is_alphanumeric()) {
+        return None;
+    }
+
+    // Skip single/double letter codes (KR, EN, JP, etc.)
+    if cleaned.len() <= 2 && cleaned.chars().all(|c| c.is_ascii_uppercase()) {
+        return None;
+    }
+
+    // Skip common navigation/UI elements
+    let skip_list = [
+        "next", "prev", "previous", "home", "menu", "search", "login", "register",
+        "series", "action", "manga", "older", "upcoming", "novel", "comics"
+    ];
+    if skip_list.contains(&cleaned.to_lowercase().as_str()) {
+        return None;
+    }
+
+    // Skip if starts with "Chapter" (likely a chapter link, not a title)
+    if cleaned.to_lowercase().starts_with("chapter ") {
+        return None;
+    }
+
+    Some(cleaned)
+}
+
 async fn fetch_text(client: &Client, url: &str) -> Result<String, reqwest::Error> {
     let mut last_err: Option<reqwest::Error> = None;
     let retry_delays = [500, 1000, 2000, 4000]; // Exponential backoff in milliseconds
@@ -128,26 +207,11 @@ pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Res
                                 .unwrap_or_default();
                         }
 
-                        // Clean up excessive whitespace and normalize title
-                        title = title.split_whitespace().collect::<Vec<_>>().join(" ");
-
-                        // Remove hash/slug IDs from end (8+ hex chars at end)
-                        if let Some(last_word) = title.split_whitespace().last() {
-                            if last_word.len() >= 8 && last_word.chars().all(|c| c.is_ascii_hexdigit()) {
-                                title = title.trim_end_matches(last_word).trim().to_string();
-                            }
-                        }
-
-                        // Skip if title is just numbers (likely page numbers or ratings)
-                        if title.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                            continue;
-                        }
-
-                        // Skip common navigation/UI elements
-                        let skip_titles = ["next", "prev", "previous", "home", "menu", "search", "login", "register", "hot", "new"];
-                        if skip_titles.contains(&title.to_lowercase().as_str()) {
-                            continue;
-                        }
+                        // Apply comprehensive title cleaning
+                        title = match clean_manga_title(&title) {
+                            Some(cleaned) => cleaned,
+                            None => continue, // Skip if cleaning filtered it out
+                        };
 
                         let cover_url = element
                             .select(&Selector::parse("img").unwrap())
@@ -216,26 +280,11 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                                     .unwrap_or_default()
                             };
 
-                            // Clean up excessive whitespace
-                            title = title.split_whitespace().collect::<Vec<_>>().join(" ");
-
-                            // Remove hash/slug IDs from end (8+ hex chars at end)
-                            if let Some(last_word) = title.split_whitespace().last() {
-                                if last_word.len() >= 8 && last_word.chars().all(|c| c.is_ascii_hexdigit()) {
-                                    title = title.trim_end_matches(last_word).trim().to_string();
-                                }
-                            }
-
-                            // Skip if title is just numbers (likely page numbers or ratings)
-                            if title.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                                continue;
-                            }
-
-                            // Skip common navigation/UI elements
-                            let skip_titles = ["next", "prev", "previous", "home", "menu", "search", "login", "register", "hot", "new"];
-                            if skip_titles.contains(&title.to_lowercase().as_str()) {
-                                continue;
-                            }
+                            // Apply comprehensive title cleaning
+                            title = match clean_manga_title(&title) {
+                                Some(cleaned) => cleaned,
+                                None => continue, // Skip if cleaning filtered it out
+                            };
 
                             let cover_url = element
                                 .select(&Selector::parse("img").unwrap())
@@ -262,30 +311,15 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                     let l = h.to_lowercase();
                     let looks_series = l.contains("/series/") || (l.contains("/manga/") && !l.contains("/chapter/"));
                     if !looks_series { continue; }
-                    let mut title_text = a.value().attr("title").map(|s| s.trim().to_string())
+                    let title_text_raw = a.value().attr("title").map(|s| s.trim().to_string())
                         .filter(|s| !s.is_empty())
                         .unwrap_or_else(|| a.text().collect::<String>().trim().to_string());
 
-                    // Clean up excessive whitespace
-                    title_text = title_text.split_whitespace().collect::<Vec<_>>().join(" ");
-
-                    // Remove hash/slug IDs from end (8+ hex chars at end)
-                    if let Some(last_word) = title_text.split_whitespace().last() {
-                        if last_word.len() >= 8 && last_word.chars().all(|c| c.is_ascii_hexdigit()) {
-                            title_text = title_text.trim_end_matches(last_word).trim().to_string();
-                        }
-                    }
-
-                    // Skip if title is just numbers (likely page numbers or ratings)
-                    if title_text.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                        continue;
-                    }
-
-                    // Skip common navigation/UI elements
-                    let skip_titles = ["next", "prev", "previous", "home", "menu", "search", "login", "register"];
-                    if skip_titles.contains(&title_text.to_lowercase().as_str()) {
-                        continue;
-                    }
+                    // Apply comprehensive title cleaning
+                    let title_text = match clean_manga_title(&title_text_raw) {
+                        Some(cleaned) => cleaned,
+                        None => continue, // Skip if cleaning filtered it out
+                    };
 
                     let series_url = if h.starts_with("http") {
                         h.to_string()
@@ -297,12 +331,7 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                         };
                         format!("{}{}", base_url.trim_end_matches('/'), path)
                     };
-                    if title_text.is_empty() {
-                        // Derive from slug
-                        let slug = series_url.trim_end_matches('/').rsplit('/').next().unwrap_or("");
-                        if !slug.is_empty() { title_text = slug.replace(['-', '_'], " "); }
-                    }
-                    if title_text.is_empty() { continue; }
+                    // title_text is already cleaned and validated by clean_manga_title
                     if seen.insert(series_url.clone()) {
                         out.push((Manga { id: String::new(), title: title_text, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
                     }

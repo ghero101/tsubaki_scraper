@@ -2,6 +2,9 @@ use reqwest::{Client, Url};
 use scraper::{Html, Selector};
 use crate::models::{Manga, Chapter};
 
+// Re-use the comprehensive cleaning function from wp_manga
+use crate::sources::wp_manga::clean_manga_title_public as clean_title;
+
 const BASE_URL: &str = "https://rizzcomic.com";
 
 pub async fn search_manga(client: &Client, title: &str) -> Result<Vec<Manga>, reqwest::Error> {
@@ -14,8 +17,13 @@ pub async fn search_manga(client: &Client, title: &str) -> Result<Vec<Manga>, re
     for element in document.select(&selector) {
         let title_selector = Selector::parse("h3 > a").unwrap();
         let title_element = element.select(&title_selector).next().unwrap();
-        // Normalize whitespace
-        let title = title_element.text().collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ");
+        let title_raw = title_element.text().collect::<String>();
+
+        // Apply comprehensive title cleaning
+        let title = match clean_title(&title_raw) {
+            Some(cleaned) => cleaned,
+            None => continue, // Skip if filtering removes it
+        };
         let url = title_element.value().attr("href").unwrap().to_string();
 
         let cover_selector = Selector::parse("img").unwrap();
@@ -80,8 +88,12 @@ pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<
                 for element in document.select(sel) {
                     let a_sel = Selector::parse("h3 > a, a.item-title, a.series-title, a\n").unwrap();
                     if let Some(a) = element.select(&a_sel).next() {
-                        // Normalize whitespace: replace all whitespace sequences with single space
-                        let title = a.text().collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ");
+                        let title_raw = a.text().collect::<String>();
+                        // Apply comprehensive title cleaning
+                        let title = match clean_title(&title_raw) {
+                            Some(cleaned) => cleaned,
+                            None => continue, // Skip if filtering removes it
+                        };
                         let series_url = a.value().attr("href").unwrap_or("").to_string();
                         if series_url.is_empty() || seen.contains(&series_url) { continue; }
                         let cover_url = element
@@ -127,11 +139,17 @@ pub async fn search_manga_first_page(client: &Client) -> Result<Vec<(Manga, Stri
                 // Try multiple link patterns
                 let a_sel = Selector::parse("h3 > a, a.item-title, a.series-title, a").unwrap();
                 if let Some(a) = element.select(&a_sel).next() {
-                    // Get title from title attribute or link text, normalize whitespace
-                    let title = a.value().attr("title")
-                        .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "))
-                        .or_else(|| Some(a.text().collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ")))
+                    // Get title from title attribute or link text
+                    let title_raw = a.value().attr("title")
+                        .map(|s| s.to_string())
+                        .or_else(|| Some(a.text().collect::<String>()))
                         .unwrap_or_default();
+
+                    // Apply comprehensive title cleaning
+                    let title = match clean_title(&title_raw) {
+                        Some(cleaned) => cleaned,
+                        None => continue, // Skip if filtering removes it
+                    };
                     let series_url = a.value().attr("href").unwrap_or("").to_string();
                     if title.is_empty() || series_url.is_empty() || seen.contains(&series_url) { continue; }
                     let cover_url = element
