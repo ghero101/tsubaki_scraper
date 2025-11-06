@@ -1,20 +1,20 @@
 {
-  "timestamp": "2025-11-05T20:43:37.491233292+00:00",
+  "timestamp": "2025-11-05T23:34:41.020213500+00:00",
   "total_sources": 23,
-  "working_sources": 7,
-  "failed_sources": 16,
+  "working_sources": 8,
+  "failed_sources": 15,
   "results": [
     {
       "source_name": "MangaDex",
       "status": "WORKING",
       "manga_count": 10,
-      "total_chapters": 1503,
-      "duration_ms": 10122,
+      "total_chapters": 1863,
+      "duration_ms": 11234,
       "error": null,
       "sample_manga": [
-        "Maou ni Natta node, Dungeon Tsukutte Jingai Musume to Honobono Suru",
-        "Yankee JK Kuzuhana-chan",
-        "The Idol and Her Egg Problem"
+        "Clevatess -Majuu no Ou to Akago to Shikabane no Yuusha-",
+        "Akatsuki no Yona",
+        "Your Distance"
       ]
     },
     {
@@ -22,7 +22,7 @@
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 110,
-      "duration_ms": 19953,
+      "duration_ms": 21130,
       "error": null,
       "sample_manga": [
         "I’m Super Rich, So Being A Trash Man Is Reasonable, Right?",
@@ -34,13 +34,13 @@
       "source_name": "ResetScans",
       "status": "WORKING",
       "manga_count": 10,
-      "total_chapters": 109,
-      "duration_ms": 47899,
+      "total_chapters": 37,
+      "duration_ms": 36840,
       "error": null,
       "sample_manga": [
-        "The Turn-Bound Mage",
-        "Return of the First Patriarch: The Strongest Reincarnates into His Descendant 1000 Years Later",
-        "Thank You, Customer. This is Time-Life Insurance Company."
+        "The Ultimate Weapon Family",
+        "What? You’re Firing Me, the Only “Cook” Who’s Mastered His Skill Without a Guild?",
+        "I Single-Handedly Crush the Chaotic World"
       ]
     },
     {
@@ -48,7 +48,7 @@
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 144,
-      "duration_ms": 89962,
+      "duration_ms": 90662,
       "error": null,
       "sample_manga": [
         "“Okaeri, Papa”\t\t\t\n\t\t\t\n\t\t\t\tChapter 24\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t9.3",
@@ -58,19 +58,23 @@
     },
     {
       "source_name": "Manhuaus",
-      "status": "ERROR",
-      "manga_count": 0,
-      "total_chapters": 0,
-      "duration_ms": 95712,
-      "error": "request or response body error: error reading a body from connection: unexpected EOF during chunk size line",
-      "sample_manga": []
+      "status": "WORKING",
+      "manga_count": 10,
+      "total_chapters": 846,
+      "duration_ms": 132756,
+      "error": null,
+      "sample_manga": [
+        "Archmage Transcending Through Regression",
+        "Monster Pet Evolution",
+        "Soul Land V"
+      ]
     },
     {
       "source_name": "RokariComics",
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 69,
-      "duration_ms": 9616,
+      "duration_ms": 10298,
       "error": null,
       "sample_manga": [
         "101st Confession",
@@ -83,7 +87,7 @@
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 3,
-      "duration_ms": 24416,
+      "duration_ms": 24456,
       "error": null,
       "sample_manga": [
         "Noa-senpai wa Tomodachi.",
@@ -96,7 +100,7 @@
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 181,
-      "duration_ms": 13670,
+      "duration_ms": 26714,
       "error": null,
       "sample_manga": [
         "A Modern Man Who Got Transmigrated To Murim",
@@ -109,135 +113,208 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 1274,
+      "duration_ms": 1290,
       "error": "No manga returned from source",
-      "sample_manga": []
+      "sample_manga": [],
+      "base_url": "https://asmotoon.com",
+      "serieslist_path": "/series/",
+      "example_manga_url": "https://asmotoon.com/series/6429cb1a7bb/",
+      "example_chapter_url": "https://asmotoon.com/chapter/6429cb1a7bb-6429d2e26d1/"
     },
     {
       "source_name": "HiveToons",
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 810,
+      "duration_ms": 304,
       "error": "No manga returned from source",
-      "sample_manga": []
+      "sample_manga": [],
+      "base_url": "https://hivetoons.org/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://hivetoons.org/series/the-tale-of-the-skeleton-messenger",
+      "example_chapter_url": "https://hivetoons.org/series/the-tale-of-the-skeleton-messenger/chapter-11"
     },
     {
       "source_name": "KenScans",
-      "status": "ERROR",
+      "status": "NOT_FOUND",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 17905,
-      "error": "HTTP status server error (503 Service Unavailable) for url (https://kencomics.com/manga/?page=1)",
-      "sample_manga": []
+      "duration_ms": 14568,
+      "error": "HTTP status client error (404 Not Found) for url (https://kencomics.com/manga?page=1)",
+      "sample_manga": [],
+      "base_url": "https://kencomics.com/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://kencomics.com/series/berserk-of-gluttony",
+      "example_chapter_url": "https://kencomics.com/series/berserk-of-gluttony/chapter-42"
     },
     {
       "source_name": "QIScans",
       "status": "NOT_FOUND",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 37840,
+      "duration_ms": 12993,
       "error": "HTTP status client error (404 Not Found) for url (https://qiscans.org/manga?page=1)",
-      "sample_manga": []
+      "sample_manga": [],
+      "base_url": "https://qiscans.org/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://qiscans.org/series/arm-of-the-abomination",
+      "example_chapter_url": "https://qiscans.org/series/arm-of-the-abomination/chapter-18"
     },
     {
       "source_name": "NyxScans",
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 642,
+      "duration_ms": 307,
       "error": "No manga returned from source",
-      "sample_manga": []
+      "sample_manga": [],
+      "base_url": "https://nyxscans.com/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://nyxscans.com/series/a-witch's-tears-become-poison",
+      "example_chapter_url": "https://nyxscans.com/series/a-witch's-tears-become-poison/chapter-1"
     },
     {
       "source_name": "DrakeComic",
       "status": "FORBIDDEN",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 16440,
+      "duration_ms": 16364,
       "error": "HTTP status client error (403 Forbidden) for url (https://drakecomic.org/manga/?page=1)",
-      "sample_manga": []
+      "sample_manga": [],
+      "base_url": "https://drakecomic.org/",
+      "serieslist_path": "/manga/?status=&type=&order=",
+      "example_manga_url": "https://drakecomic.org/manga/becoming-a-god-starting-as-water-monkey/",
+      "example_chapter_url": "https://drakecomic.org/becoming-a-god-starting-as-water-monkey-chapter-82/"
     },
     {
       "source_name": "MadaraScans",
       "status": "FORBIDDEN",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 14603,
+      "duration_ms": 16306,
       "error": "HTTP status client error (403 Forbidden) for url (https://madarascans.com/manga/?page=1)",
-      "sample_manga": []
+      "sample_manga": [],
+      "base_url": "https://madarascans.com/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://madarascans.com/series/another-god-of-war-manhua/",
+      "example_chapter_url": "https://madarascans.com/another-god-of-war-manhua-chapter-12/"
     },
     {
       "source_name": "RizzFables",
-      "status": "ERROR",
+      "status": "FORBIDDEN",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 18007,
-      "error": "HTTP status server error (503 Service Unavailable) for url (https://rizzfables.com/manga/?page=1)",
-      "sample_manga": []
+      "duration_ms": 11306,
+      "error": "HTTP status client error (403 Forbidden) for url (https://teksishe.net/4/6973620)",
+      "sample_manga": [],
+      "base_url": "https://rizzfables.com/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://rizzfables.com/series/r2311170-an-s-rank-hunters-healing-journey-with-monsters",
+      "example_chapter_url": "https://rizzfables.com/chapter/r2311170-an-s-rank-hunters-healing-journey-with-monsters-chapter-6"
     },
     {
       "source_name": "ThunderScans",
-      "status": "NO_DATA",
+      "status": "DNS_ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 314,
-      "error": "No manga returned from source",
-      "sample_manga": []
+      "duration_ms": 55,
+      "error": "error sending request for url (https://thunderscans.com/manga/?page=1): error trying to connect: dns error: This is usually a temporary error during hostname resolution and means that the local server did not receive a response from an authoritative server. (os error 11002)",
+      "sample_manga": [],
+      "base_url": "https://en-thunderscans.com/",
+      "serieslist_path": "/comics/",
+      "example_manga_url": "https://en-thunderscans.com/comics/a-paladin-in-a-dark-fantasy-world/",
+      "example_chapter_url": "https://en-thunderscans.com/a-paladin-in-a-dark-fantasy-world-chapter-51/"
     },
     {
       "source_name": "AsuraScans",
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 16370,
-      "error": "HTTP status server error (503 Service Unavailable) for url (https://asurascans.com/manga/?page=1)",
-      "sample_manga": []
+      "duration_ms": 15221,
+      "error": "error sending request for url (https://asurascans.com/manga/?page=1): error trying to connect: The message received was unexpected or badly formatted. (os error -2146893018)",
+      "sample_manga": [],
+      "base_url": "https://asuracomic.net/",
+      "serieslist_path": "/series?page=1",
+      "example_manga_url": "https://asuracomic.net/series/breakers-29dc2675",
+      "example_chapter_url": "https://asuracomic.net/series/breakers-29dc2675/chapter/26"
     },
     {
       "source_name": "SirenScans",
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 24405,
-      "error": "HTTP status server error (503 Service Unavailable) for url (https://sirenscans.com/manga/?page=1)",
-      "sample_manga": []
+      "duration_ms": 15106,
+      "error": "error sending request for url (https://sirenscans.com/manga/?page=1): error trying to connect: The message received was unexpected or badly formatted. (os error -2146893018)",
+      "sample_manga": [],
+      "base_url": "https://sirenscans.com/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://sirenscans.com/series/63fb48a39d6/",
+      "example_chapter_url": "https://sirenscans.com/chapter/63fb48a39d6-63fb78b7388/"
     },
     {
       "source_name": "VortexScans",
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 35608,
-      "error": "HTTP status server error (503 Service Unavailable) for url (https://vortexscans.org/manga/?page=1)",
-      "sample_manga": []
+      "duration_ms": 17728,
+      "error": "error sending request for url (https://vortexscans.org/manga/?page=1): error trying to connect: The message received was unexpected or badly formatted. (os error -2146893018)",
+      "sample_manga": [],
+      "base_url": "https://vortexscans.org/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://vortexscans.org/series/i-became-the-berserker-of-the-world-i-created",
+      "example_chapter_url": "https://vortexscans.org/series/i-became-the-berserker-of-the-world-i-created/chapter-15"
+    },
+    {
+      "source_name": "MavinTranslations",
+      "status": "NEW",
+      "manga_count": 0,
+      "total_chapters": 0,
+      "duration_ms": 0,
+      "error": "NEW SOURCE - Not tested yet",
+      "sample_manga": [],
+      "base_url": "https://mavintranslations.com/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://mavintranslations.com/series/genius-blacksmith's-game",
+      "example_chapter_url": "https://mavintranslations.com/series/genius-blacksmith's-game/chapter-17"
     },
     {
       "source_name": "GrimScans",
-      "status": "ERROR",
+      "status": "DNS_ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 14168,
-      "error": "HTTP status server error (503 Service Unavailable) for url (https://grimscans.team/manga/?page=1)",
-      "sample_manga": []
+      "duration_ms": 14271,
+      "error": "error sending request for url (https://grimscans.team/manga/?page=1): error trying to connect: dns error: No such host is known. (os error 11001)",
+      "sample_manga": [],
+      "base_url": "https://grimscans.com/",
+      "serieslist_path": "/series",
+      "example_manga_url": "https://grimscans.com/series/63cf641cd33/",
+      "example_chapter_url": "https://grimscans.com/chapter/63cf641cd33-64090746cc7/"
     },
     {
       "source_name": "TempleScan",
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 321,
+      "duration_ms": 376,
       "error": "No manga returned from source",
-      "sample_manga": []
+      "sample_manga": [],
+      "base_url": "https://templetoons.com/comics",
+      "serieslist_path": "/comics",
+      "example_manga_url": "https://templetoons.com/comic/the-eunuchs-secret",
+      "example_chapter_url": "https://templetoons.com/comic/the-eunuchs-secret/chapter-33"
     },
     {
       "source_name": "Kagane",
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 969,
+      "duration_ms": 456,
       "error": "No manga returned from source",
-      "sample_manga": []
+      "sample_manga": [],
+      "base_url": "https://kagane.org/",
+      "serieslist_path": "/search?sort=avg_views_today%2Cdesc&exg=",
+      "example_manga_url": "https://kagane.org/series/35Z6JV42JH2VKCD4PB06DB4R35",
+      "example_chapter_url": "https://kagane.org/series/35Z6JV42JH2VKCD4PB06DB4R35/reader/38Z9JL42JL2VKCD4TB06TB7R65"
     }
   ]
 }
