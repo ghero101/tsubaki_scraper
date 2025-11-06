@@ -9,7 +9,7 @@ const BASE_URL: &str = "https://asmotoon.com";
 // use crate::browser_client::BrowserClient;
 //
 // pub async fn search_manga_with_urls_browser(title: &str) -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
-//     let browser = BrowserClient::new()?;
+//     let browser = BrowserClient::new().await?;
 //     let url = format!("{}/?s={}&post_type=wp-manga", BASE_URL, title);
 //     let html = browser.get_html(&url)?;
 //     Ok(parse_search_page(&html))

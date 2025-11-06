@@ -131,7 +131,7 @@ impl BotDetectionConfig {
 
     /// Create a browser client from this configuration
     #[allow(dead_code)]
-    pub fn create_browser_client(&self) -> Result<crate::browser_client::BrowserClient, Box<dyn std::error::Error>> {
+    pub async fn create_browser_client(&self) -> Result<crate::browser_client::BrowserClient, Box<dyn std::error::Error>> {
         use crate::browser_client::{BrowserClient, BrowserConfig};
         use std::time::Duration;
 
@@ -152,6 +152,6 @@ impl BotDetectionConfig {
             chrome_path: None,
         };
 
-        BrowserClient::with_config(config)
+        BrowserClient::with_config(config).await
     }
 }

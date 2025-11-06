@@ -45,7 +45,7 @@ async fn test_retry_logic_with_rate_limit() {
 async fn test_browser_client_availability() {
     use rust_manga_scraper::browser_client::BrowserClient;
 
-    let result = BrowserClient::new();
+    let result = BrowserClient::new().await;
 
     match result {
         Ok(_browser) => {
@@ -64,7 +64,7 @@ async fn test_browser_client_availability() {
 async fn test_browser_basic_navigation() {
     use rust_manga_scraper::browser_client::BrowserClient;
 
-    let browser = BrowserClient::new().expect("Chrome/Chromium not installed");
+    let browser = BrowserClient::new().await.expect("Chrome/Chromium not installed");
     let result = browser.get_html("https://example.com");
 
     match result {

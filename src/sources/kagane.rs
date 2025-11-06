@@ -1,4 +1,5 @@
 use crate::models::{Chapter, Manga};
+use crate::sources_browser::kagane_browser;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde_json::Value;
@@ -12,6 +13,16 @@ pub async fn search_manga_with_urls(
     client: &Client,
     title: &str,
 ) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+    // Try browser first for JS-rendered content
+    match kagane_browser::search_manga_with_urls().await {
+        Ok(results) if !results.is_empty() => {
+            log::info!("Kagane: Successfully fetched {} manga using browser", results.len());
+            return Ok(results);
+        }
+        Ok(_) => log::warn!("Kagane: Browser returned no results, trying fallback"),
+        Err(e) => log::warn!("Kagane: Browser method failed ({}), trying fallback", e),
+    }
+
     if title.trim().is_empty() {
         // For empty search, use the comprehensive search_all_series_with_urls
         return search_all_series_with_urls(client).await;
@@ -108,6 +119,17 @@ pub async fn get_chapters(
     client: &Client,
     series_url: &str,
 ) -> Result<Vec<Chapter>, reqwest::Error> {
+    // Try browser first for JS-rendered content
+    match kagane_browser::get_chapters(series_url).await {
+        Ok(chapters) if !chapters.is_empty() => {
+            log::info!("Kagane: Successfully fetched {} chapters using browser", chapters.len());
+            return Ok(chapters);
+        }
+        Ok(_) => log::warn!("Kagane: Browser returned no chapters, trying fallback"),
+        Err(e) => log::warn!("Kagane: Browser method failed ({}), trying fallback", e),
+    }
+
+    // Fallback to HTTP-based scraping
     let response = client
         .get(series_url)
         .header("User-Agent", "rust_manga_scraper/0.1.0")

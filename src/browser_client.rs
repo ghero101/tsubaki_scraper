@@ -38,7 +38,7 @@ impl Default for BrowserConfig {
 }
 
 /// Find or download Chrome/Chromium executable
-fn ensure_chrome_available() -> Result<PathBuf, Box<dyn std::error::Error>> {
+async fn ensure_chrome_available() -> Result<PathBuf, Box<dyn std::error::Error>> {
     // Check cache first
     {
         let cache = CHROME_PATH.lock().unwrap();
@@ -60,7 +60,7 @@ fn ensure_chrome_available() -> Result<PathBuf, Box<dyn std::error::Error>> {
 
     // Download Chromium if not found
     log::info!("Chrome/Chromium not found on system, downloading...");
-    let downloaded_path = download_chromium()?;
+    let downloaded_path = download_chromium().await?;
 
     let mut cache = CHROME_PATH.lock().unwrap();
     *cache = Some(downloaded_path.clone());
@@ -116,7 +116,7 @@ fn find_system_chrome() -> Option<PathBuf> {
 }
 
 /// Download Chromium using chromiumoxide_fetcher
-fn download_chromium() -> Result<PathBuf, Box<dyn std::error::Error>> {
+async fn download_chromium() -> Result<PathBuf, Box<dyn std::error::Error>> {
     use chromiumoxide_fetcher::{BrowserFetcher, BrowserFetcherOptions};
 
     // Create download directory in user's cache or temp dir
@@ -137,13 +137,8 @@ fn download_chromium() -> Result<PathBuf, Box<dyn std::error::Error>> {
             .build()?,
     );
 
-    // This is a blocking operation
-    let info = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?
-        .block_on(async {
-            fetcher.fetch().await
-        })?;
+    // Fetch chromium asynchronously
+    let info = fetcher.fetch().await?;
 
     log::info!("Chromium downloaded successfully: {:?}", info.executable_path);
 
@@ -158,17 +153,17 @@ pub struct BrowserClient {
 
 impl BrowserClient {
     /// Create a new browser client with default configuration
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        Self::with_config(BrowserConfig::default())
+    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        Self::with_config(BrowserConfig::default()).await
     }
 
     /// Create a new browser client with custom configuration
-    pub fn with_config(mut config: BrowserConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn with_config(mut config: BrowserConfig) -> Result<Self, Box<dyn std::error::Error>> {
         use std::ffi::OsStr;
 
         // Ensure Chrome is available (find system Chrome or download if needed)
         if config.chrome_path.is_none() {
-            config.chrome_path = Some(ensure_chrome_available()?);
+            config.chrome_path = Some(ensure_chrome_available().await?);
         }
 
         // Store all owned strings first for lifetime management
