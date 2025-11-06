@@ -88,13 +88,20 @@ pub async fn search_manga_with_urls(
                         }
                     }
                 }
+                let final_title = if title_text.is_empty() {
+                    let slug = href.trim_start_matches("/series/");
+                    // Skip hash-like slugs
+                    if slug.len() > 20 && slug.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+                        continue;
+                    }
+                    slug.replace(['-', '_'], " ")
+                } else {
+                    title_text
+                };
+
                 let m = Manga {
                     id: String::new(),
-                    title: if title_text.is_empty() {
-                        href.trim_start_matches("/series/").to_string()
-                    } else {
-                        title_text
-                    },
+                    title: final_title,
                     alt_titles: None,
                     cover_url,
                     description: None,
@@ -219,7 +226,17 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
                 if let Some(href) = a.value().attr("href") {
                     if href.starts_with("/series/") {
                         let title_text = a.text().collect::<String>().trim().to_string();
-                        let m = Manga { id: String::new(), title: if title_text.is_empty() { href.trim_start_matches("/series/").to_string() } else { title_text }, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None };
+                        let final_title = if title_text.is_empty() {
+                            let slug = href.trim_start_matches("/series/");
+                            // Skip hash-like slugs
+                            if slug.len() > 20 && slug.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+                                continue;
+                            }
+                            slug.replace(['-', '_'], " ")
+                        } else {
+                            title_text
+                        };
+                        let m = Manga { id: String::new(), title: final_title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None };
                         out.push((m, format!("{}{}", BASE_URL, href)));
                         items_in_page += 1;
                     }
@@ -254,6 +271,12 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
             let mut seen: HashSet<String> = HashSet::new();
             for cap in re.captures_iter(&last_response) {
                 let slug = cap.get(1).unwrap().as_str();
+
+                // Skip hash-like slugs (all uppercase alphanumeric, 20+ chars)
+                if slug.len() > 20 && slug.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+                    continue;
+                }
+
                 if seen.insert(slug.to_string()) {
                     let url = format!("{}/series/{}", BASE_URL, slug);
                     let title = slug.replace(['-','_'], " ");

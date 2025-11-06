@@ -111,12 +111,12 @@ pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Res
         for (container_sel, link_sel) in &selector_patterns {
             if let Ok(container_selector) = Selector::parse(container_sel) {
                 for element in document.select(&container_selector) {
-                    let title: String;
+                    let mut title: String;
                     let series_url: String;
                     
                     if let Some(link_element) = element.select(&Selector::parse(link_sel).unwrap()).next() {
                         series_url = link_element.value().attr("href").unwrap_or("").to_string();
-                        
+
                         // Try multiple ways to get title
                         if *link_sel == "h3 > a" || *link_sel == "h3 a" || *link_sel == "h2 a" {
                             title = link_element.text().collect::<String>().trim().to_string();
@@ -127,13 +127,27 @@ pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Res
                                 .or_else(|| Some(link_element.text().collect::<String>().trim().to_string()))
                                 .unwrap_or_default();
                         }
-                        
+
+                        // Clean up excessive whitespace and normalize title
+                        title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+
+                        // Skip if title is just numbers (likely page numbers or ratings)
+                        if title.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                            continue;
+                        }
+
+                        // Skip common navigation/UI elements
+                        let skip_titles = ["next", "prev", "previous", "home", "menu", "search", "login", "register", "hot", "new"];
+                        if skip_titles.contains(&title.to_lowercase().as_str()) {
+                            continue;
+                        }
+
                         let cover_url = element
                             .select(&Selector::parse("img").unwrap())
                             .next()
                             .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
                             .map(|s| s.to_string());
-                        
+
                         if !series_url.is_empty() && !title.is_empty() {
                             items += 1;
                             out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
@@ -186,7 +200,7 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                     for element in document.select(&container_selector) {
                         if let Some(link_element) = element.select(&Selector::parse(link_sel).unwrap()).next() {
                             let series_url = link_element.value().attr("href").unwrap_or("").to_string();
-                            let title: String = if *link_sel == "h3 > a" || *link_sel == "h3 a" || *link_sel == "h2 a" {
+                            let mut title: String = if *link_sel == "h3 > a" || *link_sel == "h3 a" || *link_sel == "h2 a" {
                                 link_element.text().collect::<String>().trim().to_string()
                             } else {
                                 link_element.value().attr("title")
@@ -194,6 +208,21 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                                     .or_else(|| Some(link_element.text().collect::<String>().trim().to_string()))
                                     .unwrap_or_default()
                             };
+
+                            // Clean up excessive whitespace
+                            title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+
+                            // Skip if title is just numbers (likely page numbers or ratings)
+                            if title.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                                continue;
+                            }
+
+                            // Skip common navigation/UI elements
+                            let skip_titles = ["next", "prev", "previous", "home", "menu", "search", "login", "register", "hot", "new"];
+                            if skip_titles.contains(&title.to_lowercase().as_str()) {
+                                continue;
+                            }
+
                             let cover_url = element
                                 .select(&Selector::parse("img").unwrap())
                                 .next()
@@ -222,6 +251,21 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                     let mut title_text = a.value().attr("title").map(|s| s.trim().to_string())
                         .filter(|s| !s.is_empty())
                         .unwrap_or_else(|| a.text().collect::<String>().trim().to_string());
+
+                    // Clean up excessive whitespace
+                    title_text = title_text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+                    // Skip if title is just numbers (likely page numbers or ratings)
+                    if title_text.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                        continue;
+                    }
+
+                    // Skip common navigation/UI elements
+                    let skip_titles = ["next", "prev", "previous", "home", "menu", "search", "login", "register"];
+                    if skip_titles.contains(&title_text.to_lowercase().as_str()) {
+                        continue;
+                    }
+
                     let series_url = if h.starts_with("http") {
                         h.to_string()
                     } else {
