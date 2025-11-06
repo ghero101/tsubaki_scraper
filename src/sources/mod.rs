@@ -23,4 +23,5 @@ pub mod manhuaus;
 pub mod grimscans;
 pub mod hivetoons;
 pub mod nyxscans;
+pub mod mavintranslations;
 pub mod wp_manga;

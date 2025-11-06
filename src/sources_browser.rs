@@ -324,8 +324,203 @@ pub mod drakecomic_browser {
         let browser = BrowserClient::new()?;
 
         log::info!("Fetching chapters from {} with Cloudflare bypass", series_url);
-        let _html = browser.navigate_with_cloudflare_bypass(series_url)?;
+        let html = browser.navigate_with_cloudflare_bypass(series_url)?;
 
-        super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
+        // Parse chapters from the HTML directly
+        let document = Html::parse_document(&html);
+        let selectors = [
+            "li.wp-manga-chapter a",
+            "ul.main.version-chap li a",
+            "div.listing-chapters_wrap a",
+            "div.eplister a",
+            "div.bxcl a",
+            "div#chapterlist a",
+        ];
+
+        let mut chapters = Vec::new();
+
+        for sel in &selectors {
+            if let Ok(selector) = Selector::parse(sel) {
+                for a in document.select(&selector) {
+                    let chapter_title = a.text().collect::<String>().trim().to_string();
+                    if let Some(href) = a.value().attr("href") {
+                        let url = if href.starts_with("http") {
+                            href.to_string()
+                        } else {
+                            let path = if href.starts_with('/') {
+                                href.to_string()
+                            } else {
+                                format!("/{}", href)
+                            };
+                            format!("{}{}", BASE_URL.trim_end_matches('/'), path)
+                        };
+
+                        chapters.push(Chapter {
+                            id: 0,
+                            manga_source_data_id: 0,
+                            chapter_number: chapter_title,
+                            url,
+                            scraped: false,
+                        });
+                    }
+                }
+                if !chapters.is_empty() {
+                    break;
+                }
+            }
+        }
+
+        Ok(chapters)
+    }
+}
+
+/// MadaraScans - Browser implementation with Cloudflare bypass
+pub mod madarascans_browser {
+    use super::*;
+    const BASE_URL: &str = "https://madarascans.com";
+
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+        let browser = BrowserClient::new()?;
+        let url = format!("{}/manga/?page=1", BASE_URL);
+
+        log::info!("Fetching from {} with Cloudflare bypass", url);
+        let html = browser.navigate_with_cloudflare_bypass(&url)?;
+
+        Ok(super::wp_manga_browser::parse_manga_page(&html, BASE_URL))
+    }
+
+    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+        let browser = BrowserClient::new()?;
+
+        log::info!("Fetching chapters from {} with Cloudflare bypass", series_url);
+        let html = browser.navigate_with_cloudflare_bypass(series_url)?;
+
+        // Parse chapters from the HTML directly
+        let document = Html::parse_document(&html);
+        let selectors = [
+            "li.wp-manga-chapter a",
+            "ul.main.version-chap li a",
+            "div.listing-chapters_wrap a",
+            "div.eplister a",
+            "div.bxcl a",
+            "div#chapterlist a",
+        ];
+
+        let mut chapters = Vec::new();
+
+        for sel in &selectors {
+            if let Ok(selector) = Selector::parse(sel) {
+                for a in document.select(&selector) {
+                    let chapter_title = a.text().collect::<String>().trim().to_string();
+                    if let Some(href) = a.value().attr("href") {
+                        let url = if href.starts_with("http") {
+                            href.to_string()
+                        } else {
+                            let path = if href.starts_with('/') {
+                                href.to_string()
+                            } else {
+                                format!("/{}", href)
+                            };
+                            format!("{}{}", BASE_URL.trim_end_matches('/'), path)
+                        };
+
+                        chapters.push(Chapter {
+                            id: 0,
+                            manga_source_data_id: 0,
+                            chapter_number: chapter_title,
+                            url,
+                            scraped: false,
+                        });
+                    }
+                }
+                if !chapters.is_empty() {
+                    break;
+                }
+            }
+        }
+
+        Ok(chapters)
+    }
+}
+
+/// RizzFables - Browser implementation with Cloudflare bypass
+pub mod rizzfables_browser {
+    use super::*;
+    const BASE_URL: &str = "https://rizzfables.com";
+
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+        let browser = BrowserClient::new()?;
+
+        // Try series page first, then manga page
+        let url_patterns = vec![
+            format!("{}/series", BASE_URL),
+            format!("{}/manga/?page=1", BASE_URL),
+        ];
+
+        for url in url_patterns {
+            log::info!("Fetching from {} with Cloudflare bypass", url);
+
+            if let Ok(html) = browser.navigate_with_cloudflare_bypass(&url) {
+                let results = super::wp_manga_browser::parse_manga_page(&html, BASE_URL);
+                if !results.is_empty() {
+                    return Ok(results);
+                }
+            }
+        }
+
+        Ok(Vec::new())
+    }
+
+    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+        let browser = BrowserClient::new()?;
+
+        log::info!("Fetching chapters from {} with Cloudflare bypass", series_url);
+        let html = browser.navigate_with_cloudflare_bypass(series_url)?;
+
+        // Parse chapters from the HTML directly
+        let document = Html::parse_document(&html);
+        let selectors = [
+            "li.wp-manga-chapter a",
+            "ul.main.version-chap li a",
+            "div.listing-chapters_wrap a",
+            "div.eplister a",
+            "div.bxcl a",
+            "div#chapterlist a",
+        ];
+
+        let mut chapters = Vec::new();
+
+        for sel in &selectors {
+            if let Ok(selector) = Selector::parse(sel) {
+                for a in document.select(&selector) {
+                    let chapter_title = a.text().collect::<String>().trim().to_string();
+                    if let Some(href) = a.value().attr("href") {
+                        let url = if href.starts_with("http") {
+                            href.to_string()
+                        } else {
+                            let path = if href.starts_with('/') {
+                                href.to_string()
+                            } else {
+                                format!("/{}", href)
+                            };
+                            format!("{}{}", BASE_URL.trim_end_matches('/'), path)
+                        };
+
+                        chapters.push(Chapter {
+                            id: 0,
+                            manga_source_data_id: 0,
+                            chapter_number: chapter_title,
+                            url,
+                            scraped: false,
+                        });
+                    }
+                }
+                if !chapters.is_empty() {
+                    break;
+                }
+            }
+        }
+
+        Ok(chapters)
     }
 }

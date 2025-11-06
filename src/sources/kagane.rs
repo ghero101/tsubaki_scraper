@@ -12,6 +12,11 @@ pub async fn search_manga_with_urls(
     client: &Client,
     title: &str,
 ) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+    if title.trim().is_empty() {
+        // For empty search, use the comprehensive search_all_series_with_urls
+        return search_all_series_with_urls(client).await;
+    }
+
     let encoded = title.replace(' ', "%20");
     let url = format!("{}/search?query={}", BASE_URL, encoded);
     let response = client

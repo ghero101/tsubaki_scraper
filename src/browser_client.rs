@@ -1,6 +1,12 @@
 use headless_chrome::{Browser, LaunchOptions, Tab};
 use std::sync::Arc;
 use std::time::Duration;
+use std::path::PathBuf;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+
+/// Cached Chrome executable path
+static CHROME_PATH: Lazy<Mutex<Option<PathBuf>>> = Lazy::new(|| Mutex::new(None));
 
 /// Configuration for headless browser
 #[derive(Clone)]
@@ -11,6 +17,7 @@ pub struct BrowserConfig {
     pub timeout: Duration,
     pub disable_images: bool,
     pub user_agent: Option<String>,
+    pub chrome_path: Option<PathBuf>,
 }
 
 impl Default for BrowserConfig {
@@ -25,8 +32,122 @@ impl Default for BrowserConfig {
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                     .to_string(),
             ),
+            chrome_path: None,
         }
     }
+}
+
+/// Find or download Chrome/Chromium executable
+fn ensure_chrome_available() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    // Check cache first
+    {
+        let cache = CHROME_PATH.lock().unwrap();
+        if let Some(ref path) = *cache {
+            if path.exists() {
+                log::debug!("Using cached Chrome path: {:?}", path);
+                return Ok(path.clone());
+            }
+        }
+    }
+
+    // Try to find system Chrome/Chromium
+    if let Some(path) = find_system_chrome() {
+        log::info!("Found system Chrome/Chromium: {:?}", path);
+        let mut cache = CHROME_PATH.lock().unwrap();
+        *cache = Some(path.clone());
+        return Ok(path);
+    }
+
+    // Download Chromium if not found
+    log::info!("Chrome/Chromium not found on system, downloading...");
+    let downloaded_path = download_chromium()?;
+
+    let mut cache = CHROME_PATH.lock().unwrap();
+    *cache = Some(downloaded_path.clone());
+
+    Ok(downloaded_path)
+}
+
+/// Try to find Chrome/Chromium on the system
+fn find_system_chrome() -> Option<PathBuf> {
+    let possible_paths = if cfg!(target_os = "windows") {
+        vec![
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files\Chromium\Application\chrome.exe",
+        ]
+    } else if cfg!(target_os = "macos") {
+        vec![
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ]
+    } else {
+        vec![
+            "/usr/bin/google-chrome",
+            "/usr/bin/chromium",
+            "/usr/bin/chromium-browser",
+            "/snap/bin/chromium",
+        ]
+    };
+
+    for path_str in possible_paths {
+        let path = PathBuf::from(path_str);
+        if path.exists() {
+            return Some(path);
+        }
+    }
+
+    // Try to find in PATH
+    if let Ok(output) = std::process::Command::new(if cfg!(target_os = "windows") { "where" } else { "which" })
+        .arg(if cfg!(target_os = "windows") { "chrome.exe" } else { "chromium" })
+        .output()
+    {
+        if output.status.success() {
+            if let Ok(path_str) = String::from_utf8(output.stdout) {
+                let path = PathBuf::from(path_str.trim());
+                if path.exists() {
+                    return Some(path);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Download Chromium using chromiumoxide_fetcher
+fn download_chromium() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    use chromiumoxide_fetcher::{BrowserFetcher, BrowserFetcherOptions};
+
+    // Create download directory in user's cache or temp dir
+    let download_dir = if let Some(cache_dir) = dirs::cache_dir() {
+        cache_dir.join("rust_manga_scraper").join("chromium")
+    } else {
+        std::env::temp_dir().join("rust_manga_scraper").join("chromium")
+    };
+
+    std::fs::create_dir_all(&download_dir)?;
+
+    log::info!("Downloading Chromium to: {:?}", download_dir);
+    log::info!("This may take a few minutes on first run...");
+
+    let fetcher = BrowserFetcher::new(
+        BrowserFetcherOptions::builder()
+            .with_path(&download_dir)
+            .build()?,
+    );
+
+    // This is a blocking operation
+    let info = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(async {
+            fetcher.fetch().await
+        })?;
+
+    log::info!("Chromium downloaded successfully: {:?}", info.executable_path);
+
+    Ok(info.executable_path)
 }
 
 /// Enhanced browser client for JavaScript-rendered sites
@@ -42,8 +163,13 @@ impl BrowserClient {
     }
 
     /// Create a new browser client with custom configuration
-    pub fn with_config(config: BrowserConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn with_config(mut config: BrowserConfig) -> Result<Self, Box<dyn std::error::Error>> {
         use std::ffi::OsStr;
+
+        // Ensure Chrome is available (find system Chrome or download if needed)
+        if config.chrome_path.is_none() {
+            config.chrome_path = Some(ensure_chrome_available()?);
+        }
 
         // Store all owned strings first for lifetime management
         let images_arg = if config.disable_images {
@@ -72,11 +198,18 @@ impl BrowserClient {
             args.push(OsStr::new(ua));
         }
 
-        let launch_options = LaunchOptions::default_builder()
+        let mut builder = LaunchOptions::default_builder();
+        builder
             .headless(config.headless)
             .window_size(Some((config.window_width, config.window_height)))
-            .args(args)
-            .build()?;
+            .args(args);
+
+        // Use the Chrome path if specified
+        if let Some(ref chrome_path) = config.chrome_path {
+            builder.path(Some(chrome_path.clone()));
+        }
+
+        let launch_options = builder.build()?;
 
         let browser = Browser::new(launch_options)?;
 
