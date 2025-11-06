@@ -1,6 +1,6 @@
+#![allow(dead_code)]
 use reqwest::Client;
 use crate::models::{Manga, Chapter};
-use serde_json::Value;
 
 const BASE_URL: &str = "https://myanimelist.net";
 const API_URL: &str = "https://api.myanimelist.net/v2";

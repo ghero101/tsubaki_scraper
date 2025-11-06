@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Kodansha Comics - Free sample chapters and volumes
 use reqwest::Client;
 use crate::models::{Manga, Chapter};

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// VIZ Media - Shonen Jump & More
 /// Scrapes free chapters only (respects time-gated paywall)
 use reqwest::Client;

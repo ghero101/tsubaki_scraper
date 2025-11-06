@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use reqwest::Client;
 use crate::models::{Manga, Chapter};
 use serde_json::{json, Value};

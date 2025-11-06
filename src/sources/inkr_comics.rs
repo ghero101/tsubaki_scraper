@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Inkr Comics - Free content where available
 use reqwest::Client;
 use crate::models::{Manga, Chapter};

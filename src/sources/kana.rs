@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Kana - Free content where available
 use reqwest::Client;
 use crate::models::{Manga, Chapter};
