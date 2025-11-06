@@ -186,6 +186,12 @@ async fn test_all_sources_comprehensive() {
     println!("Testing Kagane...");
     results.push(test_source!(kagane, "Kagane"));
 
+    println!("Testing MavinTranslations...");
+    results.push(test_source!(mavintranslations, "MavinTranslations"));
+
+    println!("Testing KDTNovels...");
+    results.push(test_kdtnovels().await);
+
     // Generate report
     let working = results.iter().filter(|r| r.status == "WORKING").count();
     let total = results.len();
@@ -218,6 +224,58 @@ async fn test_all_sources_comprehensive() {
     println!("║  ❌ Failed Sources:   {:2}/{:2}                               ║",
         total - working, total);
     println!("╚════════════════════════════════════════════════════════════╝\n");
+}
+
+async fn test_kdtnovels() -> SourceTestResult {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(30))
+        .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
+        .build()
+        .expect("Failed to create HTTP client");
+
+    let start = Instant::now();
+
+    // KDTNovels doesn't have get_chapters, just search
+    match rust_manga_scraper::sources::kdtnovels::search_manga_with_urls(&client, "").await {
+        Ok(results) => {
+            let manga_count = results.len().min(10);
+            let sample_manga: Vec<String> = results.iter()
+                .take(3)
+                .map(|(m, _)| m.title.clone())
+                .collect();
+
+            if manga_count == 0 {
+                SourceTestResult {
+                    source_name: "KDTNovels".to_string(),
+                    status: "NO_DATA".to_string(),
+                    manga_count: 0,
+                    total_chapters: 0,
+                    duration_ms: start.elapsed().as_millis(),
+                    error: Some("No novels returned from source".to_string()),
+                    sample_manga: vec![],
+                }
+            } else {
+                SourceTestResult {
+                    source_name: "KDTNovels".to_string(),
+                    status: "WORKING".to_string(),
+                    manga_count,
+                    total_chapters: 0, // No chapters for novel source
+                    duration_ms: start.elapsed().as_millis(),
+                    error: None,
+                    sample_manga,
+                }
+            }
+        }
+        Err(e) => SourceTestResult {
+            source_name: "KDTNovels".to_string(),
+            status: "ERROR".to_string(),
+            manga_count: 0,
+            total_chapters: 0,
+            duration_ms: start.elapsed().as_millis(),
+            error: Some(e.to_string()),
+            sample_manga: vec![],
+        }
+    }
 }
 
 async fn test_mangadex() -> SourceTestResult {

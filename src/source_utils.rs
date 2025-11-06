@@ -43,7 +43,7 @@ impl SourceFetcher {
             }
             FetchStrategy::Browser => {
                 // Use headless browser for JavaScript-rendered content
-                let browser = BrowserClient::new()?;
+                let browser = BrowserClient::new().await?;
                 browser.get_html(url)
             }
         }
@@ -98,7 +98,7 @@ impl SourceFetcher {
         &self,
         url: &str,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let browser = BrowserClient::new()?;
+        let browser = BrowserClient::new().await?;
         browser.navigate_with_cloudflare_bypass(url)
     }
 
@@ -136,7 +136,7 @@ pub async fn fetch_html_with_retry(
 pub async fn fetch_html_with_browser(
     url: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let browser = BrowserClient::new()?;
+    let browser = BrowserClient::new().await?;
     browser.get_html(url)
 }
 
@@ -144,7 +144,7 @@ pub async fn fetch_html_with_browser(
 pub async fn fetch_html_cloudflare_bypass(
     url: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let browser = BrowserClient::new()?;
+    let browser = BrowserClient::new().await?;
     browser.navigate_with_cloudflare_bypass(url)
 }
 

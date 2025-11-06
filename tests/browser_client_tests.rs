@@ -8,7 +8,7 @@ use std::time::Duration;
 #[test]
 #[ignore] // Requires Chrome/Chromium
 fn test_browser_creation() {
-    let result = BrowserClient::new();
+    let result = BrowserClient::new().await;
     assert!(result.is_ok(), "Failed to create browser client. Is Chrome/Chromium installed?");
 }
 
@@ -31,7 +31,7 @@ fn test_browser_with_config() {
 #[test]
 #[ignore] // Requires Chrome/Chromium and internet
 fn test_simple_navigation() {
-    let browser = BrowserClient::new()
+    let browser = BrowserClient::new().await
         .expect("Chrome/Chromium not installed");
 
     let result = browser.get_html("https://example.com");
@@ -46,7 +46,7 @@ fn test_simple_navigation() {
 #[test]
 #[ignore] // Requires Chrome/Chromium and internet
 fn test_wait_for_element() {
-    let browser = BrowserClient::new()
+    let browser = BrowserClient::new().await
         .expect("Chrome/Chromium not installed");
 
     let result = browser.get_html_wait_for(
@@ -64,7 +64,7 @@ fn test_wait_for_element() {
 #[test]
 #[ignore] // Requires Chrome/Chromium and internet
 fn test_javascript_execution() {
-    let browser = BrowserClient::new()
+    let browser = BrowserClient::new().await
         .expect("Chrome/Chromium not installed");
 
     let result = browser.execute_script(
@@ -81,7 +81,7 @@ fn test_javascript_execution() {
 #[test]
 #[ignore] // Requires Chrome/Chromium and internet
 fn test_cloudflare_detection() {
-    let browser = BrowserClient::new()
+    let browser = BrowserClient::new().await
         .expect("Chrome/Chromium not installed");
 
     let tab = browser.navigate("https://example.com")
@@ -95,7 +95,7 @@ fn test_cloudflare_detection() {
 #[test]
 #[ignore] // Requires Chrome/Chromium and internet
 fn test_browser_stealth_mode() {
-    let browser = BrowserClient::new()
+    let browser = BrowserClient::new().await
         .expect("Chrome/Chromium not installed");
 
     // Execute JavaScript to check if webdriver is hidden
@@ -117,7 +117,7 @@ fn test_browser_stealth_mode() {
 #[test]
 #[ignore] // Requires Chrome/Chromium and internet - slow test
 fn test_multiple_navigations() {
-    let browser = BrowserClient::new()
+    let browser = BrowserClient::new().await
         .expect("Chrome/Chromium not installed");
 
     // Navigate to multiple pages
