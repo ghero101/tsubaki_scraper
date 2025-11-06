@@ -1,22 +1,112 @@
-/// VIZ Media - Commercial/Paid Source
-/// This source requires authentication/payment and is not available for free scraping
+/// VIZ Media - Shonen Jump & More
+/// Scrapes free chapters only (respects time-gated paywall)
 use reqwest::Client;
 use crate::models::{Manga, Chapter};
+use scraper::{Html, Selector};
 
 const BASE_URL: &str = "https://www.viz.com";
 
 pub async fn search_manga_with_urls(
-    _client: &Client,
-    _title: &str,
+    client: &Client,
+    title: &str,
 ) -> Result<Vec<(Manga, String)>, reqwest::Error> {
-    // Commercial source - returns empty to prevent errors
-    log::warn!("{} is a commercial/paid source and requires authentication", "VIZ Media");
-    Ok(Vec::new())
+    // Get the Shonen Jump chapters page which lists all series
+    let search_url = if title.is_empty() {
+        format!("{}/shonenjump/chapters", BASE_URL)
+    } else {
+        format!("{}/search?search={}", BASE_URL, urlencoding::encode(title))
+    };
+
+    let response = client.get(&search_url).send().await?.text().await?;
+    let document = Html::parse_document(&response);
+
+    let mut results = Vec::new();
+    let mut seen_urls = std::collections::HashSet::new();
+
+    // Parse series links from the chapters page
+    if let Ok(selector) = Selector::parse("a[href*='/shonenjump/chapters/']") {
+        for element in document.select(&selector) {
+            if let Some(href) = element.value().attr("href") {
+                let url = if href.starts_with("http") {
+                    href.to_string()
+                } else {
+                    format!("{}{}", BASE_URL, href)
+                };
+
+                // Avoid duplicates
+                if seen_urls.contains(&url) {
+                    continue;
+                }
+                seen_urls.insert(url.clone());
+
+                let title_text = element.text().collect::<String>().trim().to_string();
+
+                if !title_text.is_empty() && url.contains("/chapters/") {
+                    results.push((Manga {
+                        id: String::new(),
+                        title: title_text,
+                        alt_titles: None,
+                        cover_url: None,
+                        description: None,
+                        tags: None,
+                        rating: None,
+                        monitored: None,
+                        check_interval_secs: None,
+                        discover_interval_secs: None,
+                        last_chapter_check: None,
+                        last_discover_check: None,
+                    }, url));
+                }
+
+                if results.len() >= 10 {
+                    break;
+                }
+            }
+        }
+    }
+
+    Ok(results)
 }
 
 pub async fn get_chapters(
-    _client: &Client,
-    _series_url: &str,
+    client: &Client,
+    series_url: &str,
 ) -> Result<Vec<Chapter>, reqwest::Error> {
-    Ok(Vec::new())
+    let response = client.get(series_url).send().await?.text().await?;
+    let document = Html::parse_document(&response);
+
+    let mut chapters = Vec::new();
+
+    // Look for chapter links (only free chapters will be accessible)
+    if let Ok(selector) = Selector::parse("a[href*='/chapter/'][href*='?action=read']") {
+        for element in document.select(&selector) {
+            if let Some(href) = element.value().attr("href") {
+                let url = if href.starts_with("http") {
+                    href.to_string()
+                } else {
+                    format!("{}{}", BASE_URL, href)
+                };
+
+                // Extract chapter number from URL or text
+                let chapter_text = element.text().collect::<String>().trim().to_string();
+                let chapter_num = if !chapter_text.is_empty() {
+                    chapter_text
+                } else if let Some(ch_num) = href.split("/chapter-").nth(1) {
+                    format!("Chapter {}", ch_num.split('/').next().unwrap_or(""))
+                } else {
+                    format!("Chapter {}", chapters.len() + 1)
+                };
+
+                chapters.push(Chapter {
+                    id: 0,
+                    manga_source_data_id: 0,
+                    chapter_number: chapter_num,
+                    url,
+                    scraped: false,
+                });
+            }
+        }
+    }
+
+    Ok(chapters)
 }

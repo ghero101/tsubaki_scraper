@@ -1,22 +1,105 @@
-/// Yen Press - Commercial/Paid Source
-/// This source requires authentication/payment and is not available for free scraping
+/// Yen Press - Free sample chapters
 use reqwest::Client;
 use crate::models::{Manga, Chapter};
+use scraper::{Html, Selector};
 
 const BASE_URL: &str = "https://yenpress.com";
 
 pub async fn search_manga_with_urls(
-    _client: &Client,
-    _title: &str,
+    client: &Client,
+    title: &str,
 ) -> Result<Vec<(Manga, String)>, reqwest::Error> {
-    // Commercial source - returns empty to prevent errors
-    log::warn!("{} is a commercial/paid source and requires authentication", "Yen Press");
-    Ok(Vec::new())
+    let search_url = if title.is_empty() {
+        format!("{}/series-search/", BASE_URL)
+    } else {
+        format!("{}/series-search/?q={}", BASE_URL, urlencoding::encode(title))
+    };
+
+    let response = client.get(&search_url).send().await?.text().await?;
+    let document = Html::parse_document(&response);
+
+    let mut results = Vec::new();
+
+    // Parse series from search results
+    let selectors = vec![
+        "div.series-card a",
+        "article.series a",
+        "div.book-item a[href*='/titles/']",
+        "a[href*='/titles/']",
+    ];
+
+    for selector_str in selectors {
+        if let Ok(selector) = Selector::parse(selector_str) {
+            for element in document.select(&selector).take(10) {
+                let url = element.value().attr("href")
+                    .map(|h| if h.starts_with("http") { h.to_string() } else { format!("{}{}", BASE_URL, h) })
+                    .unwrap_or_default();
+
+                let title_text = element.text().collect::<String>().trim().to_string();
+
+                if !url.is_empty() && !title_text.is_empty() && url.contains("/titles/") {
+                    results.push((Manga {
+                        id: String::new(),
+                        title: title_text,
+                        alt_titles: None,
+                        cover_url: None,
+                        description: None,
+                        tags: None,
+                        rating: None,
+                        monitored: None,
+                        check_interval_secs: None,
+                        discover_interval_secs: None,
+                        last_chapter_check: None,
+                        last_discover_check: None,
+                    }, url));
+                }
+            }
+
+            if !results.is_empty() {
+                break;
+            }
+        }
+    }
+
+    Ok(results)
 }
 
 pub async fn get_chapters(
-    _client: &Client,
-    _series_url: &str,
+    client: &Client,
+    series_url: &str,
 ) -> Result<Vec<Chapter>, reqwest::Error> {
-    Ok(Vec::new())
+    let response = client.get(series_url).send().await?.text().await?;
+    let document = Html::parse_document(&response);
+
+    let mut chapters = Vec::new();
+
+    // Look for volume links or preview chapters
+    if let Ok(selector) = Selector::parse("a[href*='/volume/'], div.volume a, div.book-item a") {
+        for (idx, element) in document.select(&selector).enumerate() {
+            if let Some(href) = element.value().attr("href") {
+                let url = if href.starts_with("http") {
+                    href.to_string()
+                } else {
+                    format!("{}{}", BASE_URL, href)
+                };
+
+                let chapter_text = element.text().collect::<String>().trim().to_string();
+                let chapter_num = if !chapter_text.is_empty() {
+                    chapter_text
+                } else {
+                    format!("Volume {}", idx + 1)
+                };
+
+                chapters.push(Chapter {
+                    id: 0,
+                    manga_source_data_id: 0,
+                    chapter_number: chapter_num,
+                    url,
+                    scraped: false,
+                });
+            }
+        }
+    }
+
+    Ok(chapters)
 }
