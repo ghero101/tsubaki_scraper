@@ -76,3 +76,6 @@ pub mod others;
 
 // Base WP-Manga implementation
 pub mod wp_manga;
+
+// Browser utilities
+pub mod browser_utils;

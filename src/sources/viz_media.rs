@@ -5,6 +5,9 @@ use reqwest::Client;
 use crate::models::{Manga, Chapter};
 use scraper::{Html, Selector};
 
+// Re-use the comprehensive cleaning function from wp_manga
+use crate::sources::wp_manga::clean_manga_title_public as clean_title;
+
 const BASE_URL: &str = "https://www.viz.com";
 
 pub async fn search_manga_with_urls(
@@ -40,9 +43,15 @@ pub async fn search_manga_with_urls(
                 }
                 seen_urls.insert(url.clone());
 
-                let title_text = element.text().collect::<String>().trim().to_string();
+                let title_text_raw = element.text().collect::<String>().trim().to_string();
 
-                if !title_text.is_empty() && url.contains("/chapters/") {
+                // Apply comprehensive title cleaning
+                let title_text = match clean_title(&title_text_raw) {
+                    Some(cleaned) => cleaned,
+                    None => continue, // Skip if filtering removes it
+                };
+
+                if url.contains("/chapters/") {
                     results.push((Manga {
                         id: String::new(),
                         title: title_text,
