@@ -72,12 +72,18 @@ fn clean_manga_title(title: &str) -> Option<String> {
         return None;
     }
 
-    // Skip common navigation/UI elements
+    // Skip common navigation/UI elements (English and Korean)
     let skip_list = [
         "next", "prev", "previous", "home", "menu", "search", "login", "register",
-        "series", "action", "manga", "older", "upcoming", "novel", "comics"
+        "series", "action", "manga", "older", "upcoming", "novel", "comics",
+        "랭킹",  // Korean: "Ranking"
+        "요일",  // Korean: "Day of week"
+        "신작",  // Korean: "New releases"
+        "장르",  // Korean: "Genre"
+        "완결",  // Korean: "Completed"
     ];
-    if skip_list.contains(&cleaned.to_lowercase().as_str()) {
+    // Check both lowercase English and original (for non-ASCII like Korean)
+    if skip_list.contains(&cleaned.to_lowercase().as_str()) || skip_list.contains(&cleaned.as_str()) {
         return None;
     }
 

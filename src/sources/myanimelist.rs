@@ -27,49 +27,51 @@ pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<
     let document = scraper::Html::parse_document(&response);
     let mut results = Vec::new();
 
-    // Try multiple selectors for different page types
-    let selectors = vec![
-        ("tr.ranking-list", "a.hoverinfo_trigger"),
-        ("div.js-categories-seasonal", "a.link-title"),
-        ("div.list-table", "a.hoverinfo_trigger"),
+    // Try direct link selectors first (more reliable)
+    let link_selectors = vec![
+        "a.hoverinfo_trigger[href*='/manga/']",
+        "a.link-title[href*='/manga/']",
+        "a[href*='/manga/'][data-mal-id]",
+        "a[href*='/manga/']",
     ];
 
-    for (container_sel, link_sel) in selectors {
-        if let Ok(container) = scraper::Selector::parse(container_sel) {
-            if let Ok(link_selector) = scraper::Selector::parse(link_sel) {
-                for element in document.select(&container).take(10) {
-                    if let Some(link) = element.select(&link_selector).next() {
-                        if let Some(href) = link.value().attr("href") {
-                            let url = if href.starts_with("http") {
-                                href.to_string()
-                            } else {
-                                format!("{}{}", BASE_URL, href)
-                            };
+    for link_sel in link_selectors {
+        if let Ok(link_selector) = scraper::Selector::parse(link_sel) {
+            for link in document.select(&link_selector).take(10) {
+                if let Some(href) = link.value().attr("href") {
+                    // Skip unrelated links like /manga/genre
+                    if href.contains("/genre") || href.contains("/magazine") {
+                        continue;
+                    }
 
-                            let title = link.text().collect::<String>().trim().to_string();
+                    let url = if href.starts_with("http") {
+                        href.to_string()
+                    } else {
+                        format!("{}{}", BASE_URL, href)
+                    };
 
-                            if !title.is_empty() {
-                                results.push((Manga {
-                                    id: String::new(),
-                                    title,
-                                    alt_titles: None,
-                                    cover_url: None,
-                                    description: Some("Metadata source - no chapters available".to_string()),
-                                    tags: Some("MyAnimeList".to_string()),
-                                    rating: None,
-                                    monitored: None,
-                                    check_interval_secs: None,
-                                    discover_interval_secs: None,
-                                    last_chapter_check: None,
-                                    last_discover_check: None,
-                                }, url));
-                            }
-                        }
+                    let title = link.text().collect::<String>().trim().to_string();
+
+                    if !title.is_empty() && href.contains("/manga/") {
+                        results.push((Manga {
+                            id: String::new(),
+                            title,
+                            alt_titles: None,
+                            cover_url: None,
+                            description: Some("Metadata source - no chapters available".to_string()),
+                            tags: Some("MyAnimeList".to_string()),
+                            rating: None,
+                            monitored: None,
+                            check_interval_secs: None,
+                            discover_interval_secs: None,
+                            last_chapter_check: None,
+                            last_discover_check: None,
+                        }, url));
                     }
                 }
-                if !results.is_empty() {
-                    break;
-                }
+            }
+            if !results.is_empty() {
+                break;
             }
         }
     }
