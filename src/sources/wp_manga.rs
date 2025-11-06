@@ -395,7 +395,10 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
                     chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: label, url: abs, scraped: false });
                 }
             }
-            if !chapters.is_empty() { break 'outer; }
+            if !chapters.is_empty() {
+                log::debug!("Found {} chapters using selector: {}", chapters.len(), sel);
+                break 'outer;
+            }
         }
     }
 
@@ -478,6 +481,7 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
 
     // Final fallback: scan all anchors for chapter-like URLs
     if chapters.is_empty() {
+        log::debug!("All primary selectors failed, trying final anchor scan for: {}", series_url);
         if let Ok(a_sel) = Selector::parse("a") {
             for a in document.select(&a_sel) {
                 if let Some(href) = a.value().attr("href") {
@@ -504,6 +508,11 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
                     }
                 }
             }
+        }
+        if !chapters.is_empty() {
+            log::debug!("Final fallback found {} chapters", chapters.len());
+        } else {
+            log::warn!("No chapters found for {} after all fallbacks", series_url);
         }
     }
 
