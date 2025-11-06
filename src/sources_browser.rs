@@ -147,6 +147,11 @@ pub mod wp_manga_browser {
             "div.eplister a",
             "div.bxcl a",
             "div#chapterlist a",
+            "div.chapter-list a",
+            "ul.chapter-list a",
+            "li.chapter a",
+            "div.chapters-list a",
+            "ul.chapters a",
         ];
 
         let mut chapters = Vec::new();
@@ -335,6 +340,11 @@ pub mod drakecomic_browser {
             "div.eplister a",
             "div.bxcl a",
             "div#chapterlist a",
+            "div.chapter-list a",
+            "ul.chapter-list a",
+            "li.chapter a",
+            "div.chapters-list a",
+            "ul.chapters a",
         ];
 
         let mut chapters = Vec::new();
@@ -404,6 +414,11 @@ pub mod madarascans_browser {
             "div.eplister a",
             "div.bxcl a",
             "div#chapterlist a",
+            "div.chapter-list a",
+            "ul.chapter-list a",
+            "li.chapter a",
+            "div.chapters-list a",
+            "ul.chapters a",
         ];
 
         let mut chapters = Vec::new();
@@ -486,6 +501,11 @@ pub mod rizzfables_browser {
             "div.eplister a",
             "div.bxcl a",
             "div#chapterlist a",
+            "div.chapter-list a",
+            "ul.chapter-list a",
+            "li.chapter a",
+            "div.chapters-list a",
+            "ul.chapters a",
         ];
 
         let mut chapters = Vec::new();

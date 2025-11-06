@@ -370,6 +370,11 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
         "div.eplister a",
         "div.bxcl a",
         "div#chapterlist a",
+        "div.chapter-list a",
+        "ul.chapter-list a",
+        "li.chapter a",
+        "div.chapters-list a",
+        "ul.chapters a",
     ];
     let mut chapters = Vec::new();
     let series_base = Url::parse(series_url).ok();
@@ -460,6 +465,37 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
                     let label = derive_chapter_label(&t, href);
                     let abs = if let Some(base) = &series_base { base.join(href).map(|u| u.to_string()).unwrap_or_else(|_| href.to_string()) } else { href.to_string() };
                     chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: label, url: abs, scraped: false });
+                }
+            }
+        }
+    }
+
+    // Final fallback: scan all anchors for chapter-like URLs
+    if chapters.is_empty() {
+        if let Ok(a_sel) = Selector::parse("a") {
+            for a in document.select(&a_sel) {
+                if let Some(href) = a.value().attr("href") {
+                    let lower = href.to_lowercase();
+                    if lower.contains("/chapter/") || lower.contains("/read/") || lower.contains("/episode/") {
+                        let t = a.text().collect::<String>().trim().to_string();
+                        let label = derive_chapter_label(&t, href);
+                        let abs = if let Some(base) = &series_base {
+                            base.join(href).map(|u| u.to_string()).unwrap_or_else(|_| href.to_string())
+                        } else {
+                            href.to_string()
+                        };
+
+                        // Only add if it looks like a valid chapter URL
+                        if !label.is_empty() && abs.contains("http") {
+                            chapters.push(Chapter {
+                                id: 0,
+                                manga_source_data_id: 0,
+                                chapter_number: label,
+                                url: abs,
+                                scraped: false
+                            });
+                        }
+                    }
                 }
             }
         }
