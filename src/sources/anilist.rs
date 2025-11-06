@@ -9,32 +9,48 @@ const BASE_URL: &str = "https://anilist.co";
 /// AniList - Metadata source (does not host chapters)
 /// Note: This is a metadata/tracking source, not a reading source
 pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
-    if title.is_empty() {
-        log::info!("AniList requires a search term");
-        return Ok(Vec::new());
-    }
-
     // AniList has a public GraphQL API
-    let query = json!({
-        "query": r#"
-            query ($search: String) {
-                Page(perPage: 10) {
-                    media(search: $search, type: MANGA) {
-                        id
-                        title {
-                            romaji
-                            english
+    // If no search term, get popular manga instead
+    let query = if title.is_empty() {
+        json!({
+            "query": r#"
+                query {
+                    Page(perPage: 10) {
+                        media(type: MANGA, sort: POPULARITY_DESC) {
+                            id
+                            title {
+                                romaji
+                                english
+                            }
+                            description
+                            averageScore
                         }
-                        description
-                        averageScore
                     }
                 }
+            "#
+        })
+    } else {
+        json!({
+            "query": r#"
+                query ($search: String) {
+                    Page(perPage: 10) {
+                        media(search: $search, type: MANGA) {
+                            id
+                            title {
+                                romaji
+                                english
+                            }
+                            description
+                            averageScore
+                        }
+                    }
+                }
+            "#,
+            "variables": {
+                "search": title
             }
-        "#,
-        "variables": {
-            "search": title
-        }
-    });
+        })
+    };
 
     let response = match client
         .post(API_URL)
