@@ -1,28 +1,28 @@
 {
-  "timestamp": "2025-11-06T04:54:33.046103456+00:00",
+  "timestamp": "2025-11-06T05:11:20.972508487+00:00",
   "total_sources": 25,
-  "working_sources": 8,
-  "failed_sources": 17,
+  "working_sources": 11,
+  "failed_sources": 14,
   "results": [
     {
       "source_name": "MangaDex",
       "status": "WORKING",
       "manga_count": 10,
-      "total_chapters": 1303,
-      "duration_ms": 8001,
+      "total_chapters": 87,
+      "duration_ms": 3084,
       "error": null,
       "sample_manga": [
-        "Blue Lock",
         "Isekai Gourmet de Nariagari Musou: Yama ni Tsuihou Sareta node, Nonbiri Camp o Tanoshindeitara Itsunomanika Tsuyoku Natteite, Oukou Kizoku ya Jitsuryokusha-tachi ga Ore o Houtte Oitekuremasen. Ippou, Ore o Tsuihou Shita Kizoku-tachi wa Hametsu ga Hajimaru",
-        "Wǒ Jiā Lǎopo Láizì Yīqiān Nián Qián"
+        "Otona ni Narenai Bokura wa",
+        "DO YOU BELIEVE IN MEMORIES?"
       ]
     },
     {
       "source_name": "FireScans",
       "status": "WORKING",
       "manga_count": 10,
-      "total_chapters": 110,
-      "duration_ms": 23043,
+      "total_chapters": 3,
+      "duration_ms": 4432,
       "error": null,
       "sample_manga": [
         "I’m Super Rich, So Being A Trash Man Is Reasonable, Right?",
@@ -34,8 +34,8 @@
       "source_name": "ResetScans",
       "status": "WORKING",
       "manga_count": 10,
-      "total_chapters": 0,
-      "duration_ms": 1440,
+      "total_chapters": 37,
+      "duration_ms": 10524,
       "error": null,
       "sample_manga": [
         "The Ultimate Weapon Family",
@@ -48,7 +48,7 @@
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 144,
-      "duration_ms": 89375,
+      "duration_ms": 90118,
       "error": null,
       "sample_manga": [
         "“Okaeri, Papa”\t\t\t\n\t\t\t\n\t\t\t\tChapter 24\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t9.3",
@@ -58,19 +58,23 @@
     },
     {
       "source_name": "Manhuaus",
-      "status": "ERROR",
-      "manga_count": 0,
-      "total_chapters": 0,
-      "duration_ms": 173847,
-      "error": "HTTP status server error (503 Service Unavailable) for url (https://manhuaus.com/manga/?page=64)",
-      "sample_manga": []
+      "status": "WORKING",
+      "manga_count": 10,
+      "total_chapters": 236,
+      "duration_ms": 143920,
+      "error": null,
+      "sample_manga": [
+        "My Inventory is Abnormal",
+        "Dragon-Devouring Mage",
+        "Limit-Breaking Genius Mage"
+      ]
     },
     {
       "source_name": "RokariComics",
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 69,
-      "duration_ms": 9136,
+      "duration_ms": 9500,
       "error": null,
       "sample_manga": [
         "101st Confession",
@@ -83,34 +87,42 @@
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 14205,
-      "error": "HTTP status server error (503 Service Unavailable) for url (https://stonescape.xyz/series?page=1)",
+      "duration_ms": 14976,
+      "error": "HTTP status server error (503 Service Unavailable) for url (https://stonescape.xyz/manga/?page=1)",
       "sample_manga": []
     },
     {
       "source_name": "WitchScans",
-      "status": "ERROR",
-      "manga_count": 0,
-      "total_chapters": 0,
-      "duration_ms": 16974,
-      "error": "HTTP status server error (503 Service Unavailable) for url (https://witchscans.com/manga/?page=1)",
-      "sample_manga": []
+      "status": "WORKING",
+      "manga_count": 10,
+      "total_chapters": 181,
+      "duration_ms": 14954,
+      "error": null,
+      "sample_manga": [
+        "A Modern Man Who Got Transmigrated To Murim",
+        "Acting Gangster",
+        "After 10000 years I will do whatever I want"
+      ]
     },
     {
       "source_name": "Asmotoon",
-      "status": "NO_DATA",
-      "manga_count": 0,
-      "total_chapters": 0,
-      "duration_ms": 14977,
-      "error": "No manga returned from source",
-      "sample_manga": []
+      "status": "WORKING",
+      "manga_count": 10,
+      "total_chapters": 1,
+      "duration_ms": 9266,
+      "error": null,
+      "sample_manga": [
+        "Series",
+        "I Suddenly Found Myself as the Villainous General in a hack-and-slash Game~ I'll Smash Apart the Doom Route~",
+        "Action"
+      ]
     },
     {
       "source_name": "HiveToons",
       "status": "WORKING",
       "manga_count": 10,
       "total_chapters": 3,
-      "duration_ms": 3204,
+      "duration_ms": 2297,
       "error": null,
       "sample_manga": [
         "the tale of the skeleton messenger",
@@ -123,7 +135,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 14934,
+      "duration_ms": 14932,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -131,13 +143,13 @@
       "source_name": "QIScans",
       "status": "WORKING",
       "manga_count": 10,
-      "total_chapters": 3,
-      "duration_ms": 19846,
+      "total_chapters": 1,
+      "duration_ms": 12701,
       "error": null,
       "sample_manga": [
-        "Hero of the Sword HeartPeople call those who can draw the Sword of the Heart, 'Heroes'.\n\n\n\nEllen sets off on a journey to become a Hero, but he soon learns the champions\nhe dreamed of being are nothing more than brutal weapons of war.\n\n\n\nWill Ellen manage to overcome this reality and become a true Hero?5Rating22ChaptersStart ReadingAdd to Library",
-        "EleceedJiwoo is a kind-hearted young man who harnesses the lightning quick reflexes of\na cat to secretly make the world a better place – one saved little child or\nfoster pet at a time. Kayden is a secret agent on the run, who finds himself\nstuck in the body of a…um…decidedly fat old fluffy cat. Together, armed with\nJiwoo’s super powers and Kayden’s uber-smarts, they’re out to fight those forces\nwho would let evil rule this world. That is, if they can stand each other long\nenough to get the job done.Kaiden – A mysterious ability user who hides inside\nthe body of a street cat. He is later picked up by Jiwoo after being injured\nafter a fight with another ability user. He has a stubborn and bossy\npersonality. Jiwoo – an energetic and talkative high school boy who loves cats.\ne is very kind and also seem to have a special ability.5Rating163ChaptersStart ReadingAdd to Library",
-        "The Youngest Son of the Eunhae Merchant GroupEun Seoho was born with the world's greatest merchant talent.\\r\\n\"Why would the\nMurim Alliance target me...?\"\\r\\n\"The higher-ups in the Alliance said you were\ngetting on their nerves. Tsk, what's so special about that damn money.\"\\r\\nI was\nmurdered by the blade of the Murim Alliance, who claimed to represent the\nrighteous martial world, and returned to the day I first began learning the\ntrading business. I make a firm resolution:\\r\\nIn this life, I will never have\nregrets...\\r\\n\"I'll bring you down with the very 'money' you disdain so\nmuch.\"\\r\\nWith his genius intellect and exceptional martial arts talent, the\njourney of Eun Seoho begins—destined to become a great merchant emperor (商皇) who\nwill go down in history!5Rating42ChaptersStart ReadingAdd to Library"
+        "Unrivaled Spear DemonShuji, a soldier who danced with death many times while on the battlefield, was\npossessed by the grudges and resentment of those he had killed. He too was\neventually killed, but somehow he awoke in a younger version of himself.\n\n\n\nHe returned to a time when he was still an errand boy, inexperienced with war,\nbut retained his memories. Remembering Kyo Aiyo, his comrade and savior, Shuji\ntravelled to the ‘Tiger Pit’ Sect. However, instead of the strong and reliable\nwoman, he was met with a cheerful and petite girl. He recalled the tragic past\nthat had caused her to devote herself to the army, where in his previous life\nher family had fallen apart due to false rumors.\n\n\n\n‘This time, I will protect you.’\n\n\n\nHe vowed to repay the kindness he received in his previous life by changing her\nfate. With a spear in his right hand, Shuji steps into the battlefield once\nagain, becoming the Unrivaled Spear Demon.4.95Rating21ChaptersStart ReadingAdd to Library",
+        "The Youngest Son of the Eunhae Merchant GroupEun Seoho was born with the world's greatest merchant talent.\\r\\n\"Why would the\nMurim Alliance target me...?\"\\r\\n\"The higher-ups in the Alliance said you were\ngetting on their nerves. Tsk, what's so special about that damn money.\"\\r\\nI was\nmurdered by the blade of the Murim Alliance, who claimed to represent the\nrighteous martial world, and returned to the day I first began learning the\ntrading business. I make a firm resolution:\\r\\nIn this life, I will never have\nregrets...\\r\\n\"I'll bring you down with the very 'money' you disdain so\nmuch.\"\\r\\nWith his genius intellect and exceptional martial arts talent, the\njourney of Eun Seoho begins—destined to become a great merchant emperor (商皇) who\nwill go down in history!5Rating42ChaptersStart ReadingAdd to Library",
+        "Hero of the Sword HeartPeople call those who can draw the Sword of the Heart, 'Heroes'.\n\n\n\nEllen sets off on a journey to become a Hero, but he soon learns the champions\nhe dreamed of being are nothing more than brutal weapons of war.\n\n\n\nWill Ellen manage to overcome this reality and become a true Hero?5Rating22ChaptersStart ReadingAdd to Library"
       ]
     },
     {
@@ -145,7 +157,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 439,
+      "duration_ms": 466,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -154,7 +166,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 16115,
+      "duration_ms": 15036,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -163,7 +175,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 15056,
+      "duration_ms": 14936,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -172,7 +184,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 18172,
+      "duration_ms": 18072,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -181,29 +193,25 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 15070,
+      "duration_ms": 15074,
       "error": "No manga returned from source",
       "sample_manga": []
     },
     {
       "source_name": "AsuraScans",
-      "status": "WORKING",
-      "manga_count": 10,
-      "total_chapters": 3,
-      "duration_ms": 1910,
-      "error": null,
-      "sample_manga": [
-        "rebirth of the divine demon 43554a8a",
-        "reborn as the heavenly demon 0de3bbb6",
-        "dukedoms legendary prodigy 9731c611"
-      ]
+      "status": "NO_DATA",
+      "manga_count": 0,
+      "total_chapters": 0,
+      "duration_ms": 15038,
+      "error": "No manga returned from source",
+      "sample_manga": []
     },
     {
       "source_name": "SirenScans",
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 14918,
+      "duration_ms": 14925,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -212,7 +220,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 15106,
+      "duration_ms": 14978,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -221,7 +229,7 @@
       "status": "ERROR",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 15037,
+      "duration_ms": 14917,
       "error": "HTTP status server error (503 Service Unavailable) for url (https://grimscans.com/manga/?page=1)",
       "sample_manga": []
     },
@@ -230,7 +238,7 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 8746,
+      "duration_ms": 10847,
       "error": "No manga returned from source",
       "sample_manga": []
     },
@@ -239,25 +247,29 @@
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 912,
+      "duration_ms": 783,
       "error": "No manga returned from source",
       "sample_manga": []
     },
     {
       "source_name": "MavinTranslations",
-      "status": "NO_DATA",
-      "manga_count": 0,
-      "total_chapters": 0,
-      "duration_ms": 15517,
-      "error": "No manga returned from source",
-      "sample_manga": []
+      "status": "WORKING",
+      "manga_count": 10,
+      "total_chapters": 3,
+      "duration_ms": 3720,
+      "error": null,
+      "sample_manga": [
+        "The Marquis’ Ducal Son is a Martial Artist",
+        "Genius Blacksmith’s Game",
+        "The Back-Alley Mage’s Return"
+      ]
     },
     {
       "source_name": "KDTNovels",
       "status": "NO_DATA",
       "manga_count": 0,
       "total_chapters": 0,
-      "duration_ms": 2034,
+      "duration_ms": 1374,
       "error": "No novels returned from source",
       "sample_manga": []
     }

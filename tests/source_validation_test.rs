@@ -192,6 +192,119 @@ async fn test_all_sources_comprehensive() {
     println!("Testing KDTNovels...");
     results.push(test_kdtnovels().await);
 
+    // Free scanlation sites
+    println!("Testing FlameComics...");
+    results.push(test_source!(flamecomics, "FlameComics"));
+
+    println!("Testing DayComics...");
+    results.push(test_source!(daycomics, "DayComics"));
+
+    println!("Testing LunaToons...");
+    results.push(test_source!(lunatoons, "LunaToons"));
+
+    println!("Testing KodokuStudio...");
+    results.push(test_source!(kodoku_studio, "KodokuStudio"));
+
+    println!("Testing VASTVisual...");
+    results.push(test_source!(vast_visual, "VASTVisual"));
+
+    // Free web platforms
+    println!("Testing Webtoon...");
+    results.push(test_source!(webtoon, "Webtoon"));
+
+    println!("Testing Tapas...");
+    results.push(test_source!(tapas, "Tapas"));
+
+    println!("Testing Webcomics...");
+    results.push(test_source!(webcomics, "Webcomics"));
+
+    println!("Testing MediBang...");
+    results.push(test_source!(medibang, "MediBang"));
+
+    // API/Metadata sources
+    println!("Testing MyAnimeList...");
+    results.push(test_source!(myanimelist, "MyAnimeList"));
+
+    println!("Testing AniList...");
+    results.push(test_source!(anilist, "AniList"));
+
+    // Commercial publishers (stub implementations - will return NO_DATA)
+    println!("Testing VizMedia...");
+    results.push(test_source!(viz_media, "VizMedia"));
+
+    println!("Testing KodanshaComics...");
+    results.push(test_source!(kodansha_comics, "KodanshaComics"));
+
+    println!("Testing YenPress...");
+    results.push(test_source!(yen_press, "YenPress"));
+
+    println!("Testing DarkHorseComics...");
+    results.push(test_source!(dark_horse_comics, "DarkHorseComics"));
+
+    println!("Testing SevenSeas...");
+    results.push(test_source!(seven_seas, "SevenSeas"));
+
+    println!("Testing JNovelClub...");
+    results.push(test_source!(jnovel_club, "JNovelClub"));
+
+    println!("Testing DenpaBooks...");
+    results.push(test_source!(denpa_books, "DenpaBooks"));
+
+    println!("Testing IrodoriComics...");
+    results.push(test_source!(irodori_comics, "IrodoriComics"));
+
+    println!("Testing OnePeaceBooks...");
+    results.push(test_source!(one_peace_books, "OnePeaceBooks"));
+
+    println!("Testing Tokyopop...");
+    results.push(test_source!(tokyopop, "Tokyopop"));
+
+    println!("Testing TitanManga...");
+    results.push(test_source!(titan_manga, "TitanManga"));
+
+    println!("Testing UdonEntertainment...");
+    results.push(test_source!(udon_entertainment, "UdonEntertainment"));
+
+    println!("Testing SquareEnixManga...");
+    results.push(test_source!(square_enix_manga, "SquareEnixManga"));
+
+    println!("Testing Kana...");
+    results.push(test_source!(kana, "Kana"));
+
+    println!("Testing Shueisha...");
+    results.push(test_source!(shueisha, "Shueisha"));
+
+    // Paid platforms (stub implementations)
+    println!("Testing Lezhin...");
+    results.push(test_source!(lezhin, "Lezhin"));
+
+    println!("Testing PocketComics...");
+    results.push(test_source!(pocket_comics, "PocketComics"));
+
+    println!("Testing Toomics...");
+    results.push(test_source!(toomics, "Toomics"));
+
+    println!("Testing Tappytoon...");
+    results.push(test_source!(tappytoon, "Tappytoon"));
+
+    println!("Testing Manta...");
+    results.push(test_source!(manta, "Manta"));
+
+    println!("Testing Comikey...");
+    results.push(test_source!(comikey, "Comikey"));
+
+    println!("Testing InkrComics...");
+    results.push(test_source!(inkr_comics, "InkrComics"));
+
+    println!("Testing BookLive...");
+    results.push(test_source!(booklive, "BookLive"));
+
+    println!("Testing Fakku...");
+    results.push(test_source!(fakku, "Fakku"));
+
+    println!("Testing Others...");
+    results.push(test_source!(others, "Others"));
+
     // Generate report
     let working = results.iter().filter(|r| r.status == "WORKING").count();
     let total = results.len();
