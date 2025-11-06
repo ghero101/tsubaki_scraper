@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Seven Seas Entertainment - Free preview chapters
 use reqwest::Client;
 use crate::models::{Manga, Chapter};

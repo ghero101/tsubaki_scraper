@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Others - Commercial/Paid Source
 /// This source requires authentication/payment and is not available for free scraping
 use reqwest::Client;

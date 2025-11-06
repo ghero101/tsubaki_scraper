@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Yen Press - Free sample chapters
 use reqwest::Client;
 use crate::models::{Manga, Chapter};

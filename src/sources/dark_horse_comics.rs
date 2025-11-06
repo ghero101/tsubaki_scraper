@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Dark Horse Comics - Free digital previews
 use reqwest::Client;
 use crate::models::{Manga, Chapter};
