@@ -67,3 +67,6 @@ rustfmt.toml
 manga.db
 hivetoons*.html
 kenscans*.html
+qiscans*.html
+mavintranslations*.html
+asmotoon*.html

@@ -25,6 +25,9 @@ pub mod grimscans;
 pub mod hivetoons;
 pub mod hivetoons_browser;
 pub mod kenscans_browser;
+pub mod qiscans_browser;
+pub mod mavintranslations_browser;
+pub mod asmotoon_browser;
 pub mod nyxscans;
 pub mod mavintranslations;
 
