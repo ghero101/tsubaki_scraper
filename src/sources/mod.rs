@@ -48,6 +48,7 @@ pub mod vast_visual;
 pub mod webtoon;
 pub mod webtoon_browser;
 pub mod tapas;
+pub mod tapas_browser;
 pub mod webcomics;
 pub mod medibang;
 
