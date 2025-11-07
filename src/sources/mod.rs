@@ -46,6 +46,7 @@ pub mod vast_visual;
 
 // Free web platforms
 pub mod webtoon;
+pub mod webtoon_browser;
 pub mod tapas;
 pub mod webcomics;
 pub mod medibang;
