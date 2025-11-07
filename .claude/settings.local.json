@@ -24,7 +24,9 @@
       "Bash(hivetoons_series.html)",
       "Bash(kenscans_series.html)",
       "Bash(cargo add:*)",
-      "Bash($null)"
+      "Bash($null)",
+      "Bash(git reset:*)",
+      "Bash(.gitignore)"
     ],
     "deny": [],
     "ask": []

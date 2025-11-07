@@ -24,6 +24,7 @@ pub mod manhuaus;
 pub mod grimscans;
 pub mod hivetoons;
 pub mod hivetoons_browser;
+pub mod kenscans_browser;
 pub mod nyxscans;
 pub mod mavintranslations;
 

@@ -66,3 +66,4 @@ rustfmt.toml
 /logs
 manga.db
 hivetoons*.html
+kenscans*.html
