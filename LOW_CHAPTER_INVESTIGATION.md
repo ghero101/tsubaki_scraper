@@ -9,14 +9,20 @@ These 9 sources return manga successfully but only find ~1 chapter per manga (3 
 3. Our selectors are wrong
 4. Sites have limited free content
 
+**Note:** The scraper automatically tries multiple URL patterns for each source:
+- First tries: homepage (`/`)
+- Then tries: `/manga/?page=1`, `/series?page=1`, `/?page=1`
+- Uses whichever pattern returns manga listings
+
 ## How to Check Each Source
 
 For each source below:
 
-1. **Visit the manga list page** (URL provided)
-2. **Click on the FIRST manga** in the list
-3. **Look for a chapter list** on the manga detail page
-4. **Record your findings** using the template below
+1. **Visit the homepage** (URL provided) - this is what the scraper sees first
+2. **Navigate to the manga listing** (if not visible on homepage, try `/manga` or `/series`)
+3. **Click on the FIRST manga** in the list
+4. **Look for a chapter list** on the manga detail page
+5. **Record your findings** using the template below
 
 ### What to Look For
 
@@ -32,10 +38,11 @@ For each source below:
 
 ### 1. StoneScape
 **Status:** 10 manga found, 3 chapters total
-**Manga List:** https://stonescape.xyz/manga/?page=1
+**Base URL:** https://stonescape.xyz
+**Try:** `/manga` or `/series` or homepage
 
 **Steps:**
-1. Visit manga list
+1. Visit https://stonescape.xyz and find manga listing
 2. Click first manga (should be "Noa-senpai wa Tomodachi" based on test)
 3. Look for chapter list
 
@@ -51,12 +58,14 @@ For each source below:
 
 ### 2. Asmotoon
 **Status:** 10 manga found, 3 chapters total
-**Manga List:** https://asmotoon.com/manga/?page=1
+**Base URL:** https://asmotoon.com
+**Try:** Homepage first, then `/manga` or `/series` if needed
 
 **Steps:**
-1. Visit manga list
+1. Visit https://asmotoon.com and find manga listing
 2. Click first manga
 3. Look for chapter list
+**Note:** May require JavaScript (browser comment in source code)
 
 **Record:**
 - [ ] Can see chapters? (Yes/No)
@@ -69,10 +78,11 @@ For each source below:
 
 ### 3. HiveToons
 **Status:** 10 manga found, 3 chapters total
-**Manga List:** https://hivetoons.org/manga/?page=1
+**Base URL:** https://hivetoons.org
+**Try:** Homepage first, then `/manga` or `/series` if needed
 
 **Steps:**
-1. Visit manga list
+1. Visit https://hivetoons.org and find manga listing
 2. Click first manga (should be "Regressing as the Reincarnated Bastard")
 3. Look for chapter list
 
@@ -87,10 +97,11 @@ For each source below:
 
 ### 4. KenScans
 **Status:** 10 manga found, 3 chapters total
-**Manga List:** https://kenscans.com/manga/?page=1
+**Base URL:** https://kencomics.com (note: .com not .scans)
+**Try:** Homepage first, then `/manga` or `/series` if needed
 
 **Steps:**
-1. Visit manga list
+1. Visit https://kencomics.com and find manga listing
 2. Click first manga
 3. Look for chapter list
 
@@ -105,10 +116,11 @@ For each source below:
 
 ### 5. QIScans
 **Status:** 10 manga found, 3 chapters total
-**Manga List:** https://qiscans.org/manga/?page=1
+**Base URL:** https://qiscans.org
+**Try:** Homepage first, then `/manga` or `/series` if needed
 
 **Steps:**
-1. Visit manga list
+1. Visit https://qiscans.org and find manga listing
 2. Click first manga
 3. Look for chapter list
 
@@ -123,12 +135,14 @@ For each source below:
 
 ### 6. NyxScans
 **Status:** 10 manga found, 3 chapters total
-**Manga List:** https://nyxscans.com/manga/?page=1
+**Base URL:** https://nyxscans.com
+**Try:** Homepage first, then `/manga` or `/series` if needed
 
 **Steps:**
-1. Visit manga list
+1. Visit https://nyxscans.com and find manga listing
 2. Click first manga (should be "Operation: True Love")
 3. Look for chapter list
+**Note:** Has browser support already - may require JavaScript
 
 **Record:**
 - [ ] Can see chapters? (Yes/No)
@@ -141,10 +155,11 @@ For each source below:
 
 ### 7. AsuraScans
 **Status:** 10 manga found, 3 chapters total
-**Manga List:** https://asuracomic.net/manga/?page=1
+**Base URL:** https://asuracomic.net (note: asuracomic not asurascans)
+**Try:** Homepage first, then `/manga` or `/series` if needed
 
 **Steps:**
-1. Visit manga list
+1. Visit https://asuracomic.net and find manga listing
 2. Click first manga (should be "Nano Machine")
 3. Look for chapter list
 
@@ -160,10 +175,11 @@ For each source below:
 
 ### 8. MavinTranslations
 **Status:** 10 manga found, 3 chapters total
-**Manga List:** https://mavintranslations.com/manga/?page=1
+**Base URL:** https://mavintranslations.com
+**Try:** Homepage first, then `/manga` or `/series` if needed
 
 **Steps:**
-1. Visit manga list
+1. Visit https://mavintranslations.com and find manga listing
 2. Click first manga (should be "The Marquis' Ducal Son")
 3. Look for chapter list
 
@@ -178,13 +194,13 @@ For each source below:
 
 ### 9. FlameComics
 **Status:** 10 manga found, 3 chapters total
-**Manga List:** https://flamecomics.com/home
+**Base URL:** https://flamecomics.com
+**Try:** Homepage first, then `/manga` or `/series` if needed
 
 **Steps:**
-1. Visit home page
-2. Navigate to manga section
-3. Click first manga
-4. Look for chapter list
+1. Visit https://flamecomics.com and find manga listing
+2. Click first manga
+3. Look for chapter list
 
 **Record:**
 - [ ] Can see chapters? (Yes/No)
