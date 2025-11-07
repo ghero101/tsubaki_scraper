@@ -9,6 +9,7 @@ pub mod mangadex;
 pub mod reset_scans;
 pub mod rizzcomic;
 pub mod temple_scan;
+pub mod temple_scan_browser;
 pub mod thunderscans;
 
 // WP-Manga wrappers per-site
