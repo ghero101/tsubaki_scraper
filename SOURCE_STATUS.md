@@ -134,10 +134,21 @@ Lower priority (publishers/platforms):
 - ✅ BrowserManager, BrowserConfig, BrowserScraper
 - ✅ Navigation, HTML extraction, JS evaluation
 - ✅ All tests passing (test_browser_basic.rs)
-- ✅ Dependencies: headless_chrome, thiserror
+- ✅ Dependencies: headless_chrome, thiserror, regex
 
-**Phase 2 NEXT:** Integrate with Next.js sources
-- HiveToons, KenScans, QIScans, MavinTranslations, Asmotoon, NyxScans
+**Phase 2 IN PROGRESS** - HiveToons Integration (2025-11-07):
+- ✅ Series list extraction working (10 manga found from 174KB HTML)
+- ⚠️ Chapter extraction partial (finds 1 chapter per series)
+  - Series pages load successfully (124KB+ HTML)
+  - Only finding "chapter-0" in HTML despite JavaScript execution
+  - **Issue:** Chapter list may require:
+    - API calls to load full chapter list
+    - Clicking/expanding UI elements
+    - Interacting with tabs or pagination
+  - **Next:** Investigate page interaction requirements
+
+**Phase 2 NEXT:** Complete HiveToons, then:
+- KenScans, QIScans, MavinTranslations, Asmotoon, NyxScans
 - **Expected impact: ~700+ chapters across 7 sources!**
 
 ### Phase 4: Fix ERROR Sources
