@@ -1,5 +1,5 @@
 use reqwest::Client;
-use rust_manga_scraper::sources::flamecomics;
+use rust_manga_scraper::sources::kagane;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -7,20 +7,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let client = Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .cookie_store(true)
         .build()?;
 
-    println!("=== Testing FlameComics ===\n");
+    println!("=== Testing Kagane ===\n");
 
-    // Test manga search
-    let results = flamecomics::search_manga_with_urls(&client, "").await?;
+    // Test manga search (empty string = get all)
+    let results = kagane::search_manga_with_urls(&client, "").await?;
     println!("✓ Found {} manga\n", results.len());
+
+    if results.is_empty() {
+        println!("⚠ No manga found - site may require browser or be unavailable");
+        return Ok(());
+    }
 
     // Test first 3 manga for chapters
     for (manga, url) in results.iter().take(3) {
         println!("Testing: {}", manga.title);
         println!("  URL: {}", url);
         
-        match flamecomics::get_chapters(&client, &url).await {
+        match kagane::get_chapters(&client, &url).await {
             Ok(chapters) => {
                 println!("  ✓ Chapters: {}", chapters.len());
                 if !chapters.is_empty() {
@@ -35,10 +41,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
     }
 
-    // Calculate total from already tested manga
+    // Calculate total
     let mut total_chapters = 0;
     for (_, url) in results.iter().take(3) {
-        if let Ok(chapters) = flamecomics::get_chapters(&client, url).await {
+        if let Ok(chapters) = kagane::get_chapters(&client, url).await {
             total_chapters += chapters.len();
         }
     }

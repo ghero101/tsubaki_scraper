@@ -1,212 +1,128 @@
-# Source Status and Test Results
+# Source Scraper Status Tracker
 
-Last Updated: 2025-11-05
-**Overall Status: 8/23 sources (35%) working**
+Last updated: 2025-11-07 (After Next.js sources completed)
 
-## Test Results Summary
+## ✅ WORKING WELL (Good chapter counts)
 
-After adding User-Agent headers and fixing MangaDex API:
-- ✅ **6 Fully Working**: MangaDex, ResetScans, RizzComic, Manhuaus, RokariComics, WitchScans
-- ⚠️ **2 Partially Working**: FireScans, StoneScape (manga only, 0 chapters)
-- ❌ **15 Not Working**: Various issues (403, 503, NO_DATA)
+| Source | Manga | Chapters | Status | Notes |
+|--------|-------|----------|--------|-------|
+| MangaDex | 10 | 1983 | ✅ EXCELLENT | API-based |
+| Manhuaus | 10 | 865 | ✅ EXCELLENT | |
+| RizzFables | 10 | 536 | ✅ EXCELLENT | |
+| **AsuraScans** | 10 | **533** | ✅ **EXCELLENT** | **FIXED! Was 3→533** |
+| **FlameComics** | 10 | **382** | ✅ **EXCELLENT** | **FIXED! Was 3→382** |
+| WitchScans | 10 | 181 | ✅ EXCELLENT | |
+| RizzComic | 10 | 144 | ✅ EXCELLENT | |
+| ResetScans | 10 | 111 | ✅ EXCELLENT | |
+| FireScans | 10 | 110 | ✅ EXCELLENT | |
+| RokariComics | 10 | 73 | ✅ GOOD | |
+| StoneScape | 10 | 36 | ✅ ACCEPTABLE | |
+| VizMedia | 10 | 30 | ✅ ACCEPTABLE | |
+| KodokuStudio | 6 | 21 | ✅ ACCEPTABLE | |
 
-## Fully Working Sources (6)
+## 🎯 NEXT.JS SOURCES - COMPLETE!
 
-### 1. MangaDex ✅
-- **Status**: WORKING (10 manga, 204 chapters)
-- **URL**: https://api.mangadex.org
-- **Fix Applied**: Added User-Agent header, manual URL construction
-- **Notes**: API-based source, now fully functional
+| Source | Implementation | Status | Notes |
+|--------|---------------|---------|-------|
+| **AsuraScans** | HTML scraping | ✅ **FIXED!** | 3→533 chapters |
+| **FlameComics** | JSON parser | ✅ **FIXED!** | 3→382 chapters (JSON parser was already working!) |
+| Kagane | JSON + Browser | ⚠️ **NEEDS BROWSER** | Browser automation not yet implemented |
 
-### 2. ResetScans ✅
-- **Status**: WORKING (10 manga, 109 chapters)
-- **URL**: https://reaper-scans.com
-- **Notes**: WP-Manga based, stable and reliable
+**Result:** 2 of 3 Next.js sources now working! Combined improvement: **912 new chapters!**
 
-### 3. RizzComic ✅
-- **Status**: WORKING (10 manga, 144 chapters)
-- **URL**: https://rizzcomic.com
-- **Notes**: Custom implementation, good performance
+## 🔧 WP_MANGA SOURCES (HIGH PRIORITY - Single fix = 6+ sources!)
 
-### 4. Manhuaus ✅
-- **Status**: WORKING (10 manga, 846 chapters)
-- **URL**: https://manhuaus.com
-- **Notes**: WP-Manga based, excellent chapter coverage
+These ALL use `wp_manga::get_chapters_base()` which is broken (only finds 3 chapters):
 
-### 5. RokariComics ✅
-- **Status**: WORKING (10 manga, 69 chapters)
-- **URL**: https://rokaricomics.com
-- **Notes**: WP-Manga based, consistent results
+| Source | Current Chapters | Expected | Priority |
+|--------|------------------|----------|----------|
+| HiveToons | 3 | ~100+ | 🔴 HIGH |
+| KenScans | 3 | ~100+ | 🔴 HIGH |
+| QIScans | 3 | ~100+ | 🔴 HIGH |
+| MavinTranslations | 3 | ~100+ | 🔴 HIGH |
+| Asmotoon | 3 | ~100+ | 🔴 HIGH |
+| NyxScans | 3 | ~100+ | 🔴 HIGH |
 
-### 6. WitchScans ✅
-- **Status**: WORKING (10 manga, 181 chapters)
-- **URL**: https://witchscans.com
-- **Notes**: WP-Manga based, reliable source
+**IMPACT:** Fixing `wp_manga::get_chapters_base()` will improve 6+ sources at once!
 
-## Partially Working (Manga Only) (2)
+## 🔧 BROWSER-REQUIRED SOURCES
 
-### 7. FireScans ⚠️
-- **Status**: PARTIAL (10 manga, 0 chapters)
-- **URL**: https://firescans.xyz
-- **Issue**: Chapters require JavaScript/browser client
-- **Notes**: Madara theme, manga collection works
+These need browser automation (future work):
 
-### 8. StoneScape ⚠️
-- **Status**: PARTIAL (10 manga, 0 chapters)
-- **URL**: https://stonescape.xyz
-- **Issue**: Chapters require JavaScript/browser client
-- **Notes**: WP-Manga based, manga collection works
+| Source | Status | Implementation Needed |
+|--------|--------|----------------------|
+| Kagane | NO_DATA | Browser module (`sources_browser/`) |
+| NyxScans | 3 chapters | Has browser fallback stub, needs implementation |
 
-## Not Working Sources (15)
+## 📊 METADATA ONLY (No chapters expected)
 
-### Anti-Bot Protection (403 Forbidden) - 2 sources
-**Solution Needed**: Enhanced HTTP client or browser
+| Source | Manga | Chapters | Notes |
+|--------|-------|----------|-------|
+| MyAnimeList | 5 | 0 | Metadata aggregator |
+| AniList | 10 | 0 | Metadata aggregator |
+| JNovelClub | 5 | 0 | Publisher/licensing info |
+| SquareEnixManga | 10 | 0 | Publisher catalog |
+| Comikey | 5 | 0 | Publisher platform |
+| InkrComics | 2 | 0 | Publisher platform |
+| Toomics | 1 | 0 | Publisher platform |
 
-1. **DrakeComic** - 403 Forbidden
-   - URL: https://drakecomic.com
-   - Duration: 16079ms
+## ❌ NO_DATA (32 sources - Need investigation)
 
-2. **MadaraScans** - 403 Forbidden
-   - URL: https://madarascans.com
-   - Duration: 15542ms
+High priority (popular scanlation sites):
+- DrakeComic, MadaraScans, ThunderScans, SirenScans, VortexScans
+- TempleScan, DayComics, LunaToons, Webtoon, Tapas, Webcomics, MediBang
 
-### Server Errors (503 Service Unavailable) - 6 sources
-**Status**: Sites down or blocking requests
+Lower priority (publishers/platforms):
+- VASTVisual, KDTNovels, KodanshaComics, YenPress, DarkHorseComics
+- SevenSeas, DenpaBooks, IrodoriComics, OnePeaceBooks, Tokyopop
+- TitanManga, UdonEntertainment, Shueisha, Lezhin, PocketComics
+- Tappytoon, Manta, BookLive, Fakku, Others
 
-3. **KenScans** - 503 Service Unavailable
-   - URL: https://kenscans.com
-   - Duration: 18786ms
+## 🚨 ERROR (Critical issues)
 
-4. **RizzFables** - 503 Service Unavailable
-   - URL: https://rizzfables.com
-   - Duration: 18091ms
+| Source | Error Type | Notes |
+|--------|------------|-------|
+| GrimScans | Connection | "message unexpected or badly formatted" |
+| Kana | SSL_ERROR | Untrusted root certificate |
 
-5. **AsuraScans** - 503 Service Unavailable
-   - URL: https://asurascans.com
-   - Duration: 16343ms
+---
 
-6. **SirenScans** - 503 Service Unavailable
-   - URL: https://sirenscans.com
-   - Duration: 15764ms
+## Completed Work ✅
 
-7. **VortexScans** - 503 Service Unavailable
-   - URL: https://vortexscans.com
-   - Duration: 18708ms
+### Phase 1: Next.js Sites - DONE! ✅
+1. ✅ AsuraScans - FIXED (3→533 chapters)
+2. ✅ FlameComics - FIXED (3→382 chapters) 
+3. ⚠️ Kagane - Requires browser (future work)
 
-8. **GrimScans** - 503 Service Unavailable
-   - URL: https://grimscans.team
-   - Duration: 14227ms
+**Total improvement: +912 chapters!**
 
-### JavaScript-Required (NO_DATA) - 6 sources
-**Solution Needed**: Browser client (headless Chrome)
+---
 
-9. **Asmotoon** - NO_DATA
-   - Duration: 1241ms
-   - Issue: Client-side rendering
+## Priority Action Plan - NEXT STEPS
 
-10. **HiveToons** - NO_DATA
-    - Duration: 798ms
-    - Issue: Client-side rendering
+### 🔥 Phase 2: Fix wp_manga Module (HIGHEST IMPACT!)
+**Single fix → solves 6+ sources instantly!**
 
-11. **NyxScans** - NO_DATA
-    - Duration: 670ms
-    - Issue: Client-side rendering
+The `wp_manga::get_chapters_base()` function is broken. Fixing it will improve:
+- HiveToons (3→~100+ chapters)
+- KenScans (3→~100+ chapters)
+- QIScans (3→~100+ chapters)
+- MavinTranslations (3→~100+ chapters)
+- Asmotoon (3→~100+ chapters)
+- NyxScans (3→~100+ chapters)
 
-12. **ThunderScans** - NO_DATA
-    - Duration: 286ms
-    - Issue: Client-side rendering
+**Expected total improvement: ~600+ chapters across 6 sources!**
 
-13. **TempleScan** - NO_DATA
-    - Duration: 551ms
-    - Issue: Client-side rendering
+### Phase 3: Investigate NO_DATA Sources
+- Check if sites are still online
+- Verify URL patterns
+- Update selectors if needed
 
-14. **Kagane** - NO_DATA
-    - Duration: 1600ms
-    - Issue: Client-side rendering
+### Phase 4: Browser Automation (Future)
+- Implement `sources_browser/` module
+- Add Kagane browser support
+- Add NyxScans browser support
 
-### Dead Site (404 Not Found) - 1 source
-
-15. **QIScans** - 404 Not Found
-    - URL: https://qiscans.online
-    - Duration: 37162ms
-    - Status: Domain may be dead
-
-## Recent Fixes (This Session)
-
-### MangaDex ✅ FIXED
-- **Was**: NO_DATA (0 manga)
-- **Now**: WORKING (10 manga, 204 chapters)
-- **Fix**:
-  - Added User-Agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-  - Changed from `.query()` to manual URL construction
-  - URL format: `{base_url}/manga?limit={limit}&offset={offset}&includes[]=cover_art`
-
-### All Sources - User-Agent Headers ✅ ADDED
-- Added User-Agent headers to all test clients
-- This fixed MangaDex and may help with 403 errors
-
-## Next Steps to Improve Success Rate
-
-### High Priority (Quick Wins)
-1. ✅ **DONE**: Fix MangaDex (was NO_DATA, now working with 204 chapters)
-2. ✅ **DONE**: Add User-Agent headers to all clients
-3. **TODO**: Fix FireScans/StoneScape chapter selectors (use browser client)
-4. **TODO**: Enable enhanced HTTP client for 403 sources (DrakeComic, MadaraScans)
-
-### Medium Priority
-1. Add browser client support for JavaScript-rendered sites (6 sources)
-2. Investigate 503 errors (verify if sites are actually down)
-3. Update/remove dead sources (QIScans)
-
-### Low Priority
-1. Find alternative domains for moved sites
-2. Document deprecated sources
-3. Add retry logic for transient failures
-
-## Test Commands
-
-```bash
-# Run comprehensive source validation
-cargo test --test source_validation_test -- --ignored --nocapture
-
-# Run chapter download tests
-cargo test --test chapter_download_test -- --ignored --nocapture
-
-# Test MangaDex specifically
-cargo run --example test_mangadex
-```
-
-## Configuration for Enhanced Features
-
-To enable browser client and enhanced HTTP client:
-
-```toml
-# config.toml
-[bot_detection]
-enable_enhanced_client = true
-enable_browser = true  # Requires Chrome/Chromium installed
-max_retries = 4
-timeout_secs = 30
-```
-
-## Success Rate Progression
-
-| Status | Sources | Percentage |
-|--------|---------|------------|
-| Before fixes | 5/23 | 22% |
-| After MangaDex + User-Agent | 8/23 | 35% |
-| Potential with browser client | 14/23 | 61% |
-| Potential with all fixes | 16/23 | 70% |
-
-## Critical Insights
-
-1. **User-Agent is Essential**: MangaDex API requires proper User-Agent header
-2. **JavaScript Rendering**: Many modern manga sites use client-side rendering
-3. **Bot Protection**: Some sites use Cloudflare or similar protection
-4. **Site Stability**: Several sites return 503, indicating instability or blocking
-
-## Files Generated
-
-- `source_validation_report.json` - Detailed JSON report with all test results
-- `SOURCE_STATUS.md` - This file
-- `examples/test_mangadex.rs` - Standalone MangaDex test
+### Phase 5: Fix ERROR Sources
+- GrimScans: Connection issues
+- Kana: SSL certificate problems
