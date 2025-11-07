@@ -1,5 +1,7 @@
 pub mod asmotoon;
 pub mod drakecomic;
+pub mod drakecomic_browser;
+pub mod thunderscans_browser;
 pub mod firescans;
 pub mod kagane;
 pub mod kdtnovels;
