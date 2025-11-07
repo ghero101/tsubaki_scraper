@@ -381,6 +381,19 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
         "li.chapter a",
         "div.chapters-list a",
         "ul.chapters a",
+        // Additional common patterns for various WP-Manga themes
+        "div.chbox a",                          // Chapter box variant
+        "ul.clstyle a",                         // Chapter list style
+        "div.epcheck a",                        // Episode check variant
+        "div.chapterlist a",                    // Single word variant (no hyphen)
+        "ul.version-chap a",                    // Version chapter without ul.main
+        "div.chapter-item a",                   // Chapter item variant
+        "li.parent.has-child a",                // Nested chapter lists
+        "div.eplister ul li a",                 // Nested eplister
+        "div#chapter-heading + div a",          // Chapters after heading
+        "div.page-content-listing a[href*='chapter']",  // Content listing with chapter in URL
+        "ul.list-chapters a",                   // List chapters variant
+        "div.manga-chapters a[href*='chapter']", // Manga chapters container
     ];
     let mut chapters = Vec::new();
     let series_base = Url::parse(series_url).ok();
@@ -483,11 +496,40 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
     if chapters.is_empty() {
         log::debug!("All primary selectors failed, trying final anchor scan for: {}", series_url);
         if let Ok(a_sel) = Selector::parse("a") {
+            let mut seen_urls = std::collections::HashSet::new();
             for a in document.select(&a_sel) {
                 if let Some(href) = a.value().attr("href") {
                     let lower = href.to_lowercase();
-                    if lower.contains("/chapter/") || lower.contains("/read/") || lower.contains("/episode/") {
+
+                    // Look for chapter-like patterns in URLs
+                    let is_chapter = lower.contains("/chapter")
+                        || lower.contains("/read/")
+                        || lower.contains("/episode/")
+                        || lower.contains("-chapter-")
+                        || lower.contains("/ch-")
+                        || lower.contains("/chap-");
+
+                    // Skip navigation and non-chapter links
+                    let is_navigation = lower.contains("/page/")
+                        || lower.contains("/category/")
+                        || lower.contains("/tag/")
+                        || lower.contains("/author/")
+                        || lower.contains("/genre/")
+                        || lower.contains("?s=")
+                        || lower.contains("/search");
+
+                    if is_chapter && !is_navigation {
                         let t = a.text().collect::<String>().trim().to_string();
+
+                        // Skip if text looks like navigation
+                        if let Some(cleaned) = clean_manga_title(&t) {
+                            // If title cleaning returns something, it's likely not a chapter
+                            // Chapters typically have numbers/dates that get filtered
+                            if cleaned.len() > 10 {
+                                continue;
+                            }
+                        }
+
                         let label = derive_chapter_label(&t, href);
                         let abs = if let Some(base) = &series_base {
                             base.join(href).map(|u| u.to_string()).unwrap_or_else(|_| href.to_string())
@@ -495,8 +537,8 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
                             href.to_string()
                         };
 
-                        // Only add if it looks like a valid chapter URL
-                        if !label.is_empty() && abs.contains("http") {
+                        // Only add if it looks like a valid chapter URL and we haven't seen it
+                        if !label.is_empty() && abs.contains("http") && seen_urls.insert(abs.clone()) {
                             chapters.push(Chapter {
                                 id: 0,
                                 manga_source_data_id: 0,
