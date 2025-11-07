@@ -37,7 +37,9 @@ pub mod mavintranslations;
 // Free scanlation sites
 pub mod flamecomics;
 pub mod daycomics;
+pub mod daycomics_browser;
 pub mod lunatoons;
+pub mod lunatoons_browser;
 pub mod kodoku_studio;
 pub mod vast_visual;
 
