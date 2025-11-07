@@ -1,0 +1,133 @@
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Connect Error :: WEBTOON</title>
+<style type="text/css">
+/* Common */
+html,body{height:100%}
+body,p,h1,h2,h3,h4,h5,h6,ul,ol,li,dl,dt,dd,table,th,td,form,fieldset,legend,input,textarea,button,select{margin:0;padding:0}
+body,input,textarea,select,button,table{font-size:12px;font-family:verdana,Helvetica,sans-serif}
+img,fieldset,button{border:0}
+img{vertical-align:top}
+ul,ol,li{list-style:none}
+em,address{font-style:normal}
+input,textarea{outline:none}
+hr{display:none}
+a{color:#000;text-decoration:none}
+a:hover,a:active,a:focus{text-decoration:none}
+
+#wrap{position:relative;min-width:1200px;height:100%}
+#container{min-height:100%}
+#footer{position:relative;height:54px;margin-top:-55px;border-top:1px solid #e5e5e5;background:#f5f5f5}
+
+.error_area{position:absolute;top:50%;left:0;width:100%;margin-top:-186px;text-align:center}
+.error_area h2{margin:25px 0 30px;font-size:24px;font-weight:normal}
+.error_btn a{display:inline-block}
+[class^=ico_]{display:inline-block;overflow:hidden;background:url(https://webtoons-static.pstatic.net/image/pc/sp_error.png?dt=2017081801) no-repeat;line-height:999px;vertical-align:top}
+.ico_error_find{width:204px;height:197px;background-position:0 0}
+.ico_error_connect{width:204px;height:199px;background-position:-220px 0}
+.copyright{padding-top:15px;color:#c7c7c7;text-align:center;font-size:14px;line-height:16px;color:#c5c5c5}
+.btn1{width:100px;height:40px;line-height:40px;background:#b4b4b4;border-radius:20px;font-size:18px;font-family:'hind_m',simhei;color:#fff}
+.btn1.v2{margin-left:4px;background:#2f2f2f}
+</style>
+</head>
+<body>
+<div id="wrap">
+	<!-- container -->
+    <div id="container" role="main">
+        <div id="content">
+			<div class="error_area">
+				<span class="ico_error_connect" id="message">Connection Error</span>
+				<h2 id="desc">Sorry! We couldn't connect to the webtoon service.</h2>
+				<div class="error_btn">
+					<a href="#" title="Back" class="btn1" onclick="history.back(); return false;" id="back">Back</a>
+					<a href="/" title="Home" class="btn1 v2" id="home">Home</a>
+				</div>
+			</div>
+        </div>
+    </div>
+	<!-- //container -->
+	<hr>
+
+	<!-- footer -->
+	<div id="footer" role="footer">
+		<p class="copyright" id="corp">© NAVER WEBTOON Ltd.</p>
+	</div>
+	<!-- //footer -->
+</div>
+<script type="text/javascript">
+	const messages = {
+		"zh-hant" : {
+			"pageTitle" : "Connect Error :: LINE WEBTOON",
+			"message" : "連線錯誤",
+			"desc" : "目前無法連上WEBTOON，請您稍候再試 T_T",
+			"back" : "返回",
+			"home" : "首頁",
+		},
+		"th" : {
+			"pageTitle" : "Connect Error :: WEBTOON",
+			"message" : "",
+			"desc" : "ขออภัย! เราไม่สามารถเชื่อมต่อการให้บริการเว็บตูนได้",
+			"back" : "กลับ",
+			"home" : "หน้าหลัก",
+		},
+		"id" : {
+			"pageTitle" : "Koneksi error :: WEBTOON",
+			"message" : "Koneksi error",
+			"desc" : "Maaf! Saat ini kami tidak bisa menghubungkanmu ke layanan WEBTOON. \t",
+			"back" : "Back",
+			"home" : "Home",
+		},
+		"es" : {
+			"pageTitle" : "¡Lo sentimos! No pudimos conectarte a WEBTOON. :: WEBTOON",
+			"message" : "",
+			"desc" : "¡Lo sentimos! No pudimos conectarte a WEBTOON.",
+			"back" : "Atrás",
+			"home" : "Inicio",
+		},
+		"fr" : {
+			"pageTitle" : "Échec de connexion :: WEBTOON",
+			"message" : "Échec de connexion",
+			"desc" : "Désolé ! Nous n'avons pas pu nous connecter au service webtoon.",
+			"back" : "Retour",
+			"home" : "Accueil",
+		},
+		"de" : {
+			"pageTitle" : "Verbindungsfehler :: WEBTOON",
+			"message" : "Verbindungsfehler",
+			"desc" : "Entschuldigung! Die Verbindung zum Webtoon Service ist fehlgeschlagen",
+			"back" : "Zurück",
+			"home" : "Startseite",
+		},
+	};
+	const contentLanguage = getContentLanguageFromCookie(/contentLanguage=([a-z\-]+)/) || getContentLanguageFromCookie(/locale=([a-zA-Z\-]+)/);
+	const message = messages[contentLanguage];
+	if (!!message) {
+		document.title = message.pageTitle;
+		document.getElementById("message").innerHTML = message.message;
+		document.getElementById("desc").innerHTML = message.desc;
+		document.getElementById("back").innerHTML = message.back;
+		document.getElementById("home").innerHTML = message.home;
+	}
+
+	function getContentLanguageFromCookie(regEx) {
+		const aMatch = document.cookie.match(regEx);
+		if (aMatch && aMatch.length >= 2) {
+			if (aMatch[1] === "zh-TW") {
+				return "zh-hant";
+			} else if (aMatch[1] === "th-TH") {
+				return "th";
+			} else {
+				return aMatch[1];
+			}
+		}
+
+		return null;
+	}
+</script>
+</body>
+</html>

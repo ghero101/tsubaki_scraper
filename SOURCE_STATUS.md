@@ -1,6 +1,8 @@
 # Source Scraper Status Tracker
 
-Last updated: 2025-11-07 (After Next.js sources completed)
+Last updated: 2025-11-07
+
+**Investigation Complete:** Next.js sources fixed (AsuraScans, FlameComics) + **MAJOR FINDING:** 7 sources + many NO_DATA sources require browser automation module!
 
 ## ✅ WORKING WELL (Good chapter counts)
 
@@ -30,29 +32,35 @@ Last updated: 2025-11-07 (After Next.js sources completed)
 
 **Result:** 2 of 3 Next.js sources now working! Combined improvement: **912 new chapters!**
 
-## 🔧 WP_MANGA SOURCES (HIGH PRIORITY - Single fix = 6+ sources!)
+## ⚠️ MISCLASSIFIED "WP_MANGA" SOURCES - ACTUALLY NEXT.JS!
 
-These ALL use `wp_manga::get_chapters_base()` which is broken (only finds 3 chapters):
+**MAJOR DISCOVERY:** These sources were thought to use traditional wp_manga WordPress themes, but they're actually client-side rendered Next.js sites requiring browser automation!
 
-| Source | Current Chapters | Expected | Priority |
-|--------|------------------|----------|----------|
-| HiveToons | 3 | ~100+ | 🔴 HIGH |
-| KenScans | 3 | ~100+ | 🔴 HIGH |
-| QIScans | 3 | ~100+ | 🔴 HIGH |
-| MavinTranslations | 3 | ~100+ | 🔴 HIGH |
-| Asmotoon | 3 | ~100+ | 🔴 HIGH |
-| NyxScans | 3 | ~100+ | 🔴 HIGH |
+| Source | Architecture | Current Chapters | Requires |
+|--------|-------------|------------------|----------|
+| KenScans | Next.js (CSR) | 1 per manga | 🌐 Browser |
+| QIScans | Next.js (CSR) | 1 per manga | 🌐 Browser |
+| MavinTranslations | Next.js (CSR) | 1 per manga | 🌐 Browser |
+| Asmotoon | Next.js (CSR) | 1 per manga | 🌐 Browser |
+| NyxScans | Next.js (CSR) | 1 per manga | 🌐 Browser |
 
-**IMPACT:** Fixing `wp_manga::get_chapters_base()` will improve 6+ sources at once!
+**Finding:** All tested sources have ~75 line HTML files with client-side rendering. The wp_manga module cannot scrape these without browser automation.
 
-## 🔧 BROWSER-REQUIRED SOURCES
+## 🔧 BROWSER-REQUIRED SOURCES (7 sources total)
 
-These need browser automation (future work):
+These ALL need browser automation (future work):
 
-| Source | Status | Implementation Needed |
-|--------|--------|----------------------|
-| Kagane | NO_DATA | Browser module (`sources_browser/`) |
-| NyxScans | 3 chapters | Has browser fallback stub, needs implementation |
+| Source | Type | Current Status | Notes |
+|--------|------|----------------|-------|
+| Kagane | Next.js + JSON | NO_DATA | Browser module (`sources_browser/`) not implemented |
+| **HiveToons** | Next.js (CSR) | 1 per manga | Client-side rendering - 74 line HTML |
+| **KenScans** | Next.js (CSR) | 1 per manga | Client-side rendering - 75 line HTML |
+| **QIScans** | Next.js (CSR) | 1 per manga | Client-side rendering (confirmed by pattern) |
+| **MavinTranslations** | Next.js (CSR) | 1 per manga | Client-side rendering (inferred from pattern) |
+| **Asmotoon** | Next.js (CSR) | 1 per manga | Client-side rendering (inferred from pattern) |
+| **NyxScans** | Next.js (CSR) | 1 per manga | Has browser fallback stub, needs implementation |
+
+**TOTAL IMPACT:** 7 sources require browser automation module before they can be improved.
 
 ## 📊 METADATA ONLY (No chapters expected)
 
@@ -100,29 +108,31 @@ Lower priority (publishers/platforms):
 
 ## Priority Action Plan - NEXT STEPS
 
-### 🔥 Phase 2: Fix wp_manga Module (HIGHEST IMPACT!)
-**Single fix → solves 6+ sources instantly!**
+### 🚨 UPDATED PRIORITIES AFTER INVESTIGATION:
 
-The `wp_manga::get_chapters_base()` function is broken. Fixing it will improve:
-- HiveToons (3→~100+ chapters)
-- KenScans (3→~100+ chapters)
-- QIScans (3→~100+ chapters)
-- MavinTranslations (3→~100+ chapters)
-- Asmotoon (3→~100+ chapters)
-- NyxScans (3→~100+ chapters)
+**Previous assumption:** wp_manga sources have broken chapter detection → Single fix improves 6+ sources
+**Reality discovered:** These are ALL Next.js sites requiring browser automation!
 
-**Expected total improvement: ~600+ chapters across 6 sources!**
+### 🔥 Phase 2: NO_DATA Investigation - COMPLETED ❌
 
-### Phase 3: Investigate NO_DATA Sources
-- Check if sites are still online
-- Verify URL patterns
-- Update selectors if needed
+**Investigation Results:** NO quick wins found!
 
-### Phase 4: Browser Automation (Future)
-- Implement `sources_browser/` module
-- Add Kagane browser support
-- Add NyxScans browser support
+| Source | Status | Blocker |
+|--------|--------|---------|
+| DrakeComic | 403 Forbidden | Cloudflare/anti-bot protection |
+| MadaraScans | 403 Forbidden | Cloudflare/anti-bot protection |
+| Webtoon | Connection Error | Anti-bot detection |
+| Tapas | 122-line HTML | Likely client-side Next.js |
 
-### Phase 5: Fix ERROR Sources
-- GrimScans: Connection issues
-- Kana: SSL certificate problems
+**Finding:** Nearly all NO_DATA sources are blocked by anti-bot measures or use client-side rendering.
+**Solution:** Both problems solved by browser automation!
+
+### Phase 3: Browser Automation Module (Long-term, High Impact)
+**Would unlock 7 sources instantly:**
+- Implement `sources_browser/` module using headless Chrome/Puppeteer
+- Add support for: Kagane, HiveToons, KenScans, QIScans, MavinTranslations, Asmotoon, NyxScans
+- **Expected impact: ~700+ chapters across 7 sources!**
+
+### Phase 4: Fix ERROR Sources
+- GrimScans: Connection issues ("message unexpected or badly formatted")
+- Kana: SSL certificate problems (untrusted root certificate)

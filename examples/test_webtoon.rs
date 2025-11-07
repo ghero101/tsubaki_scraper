@@ -1,0 +1,50 @@
+use reqwest::Client;
+use rust_manga_scraper::sources::webtoon;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .build()?;
+
+    println!("=== Testing Webtoon ===\n");
+
+    // Test manga search (canvas list)
+    let results = webtoon::search_manga_with_urls(&client, "").await?;
+    println!("✓ Found {} series\n", results.len());
+
+    // Test first 3 series for chapters
+    for (manga, url) in results.iter().take(3) {
+        println!("Testing: {}", manga.title);
+        println!("  URL: {}", url);
+
+        match webtoon::get_chapters(&client, &url).await {
+            Ok(chapters) => {
+                println!("  ✓ Chapters: {}", chapters.len());
+                if !chapters.is_empty() {
+                    println!("    First: {}", chapters.first().unwrap().chapter_number);
+                    println!("    Last: {}", chapters.last().unwrap().chapter_number);
+                }
+            }
+            Err(e) => {
+                println!("  ✗ Error: {}", e);
+            }
+        }
+        println!();
+    }
+
+    let mut total_chapters = 0;
+    for (_, url) in results.iter().take(3) {
+        if let Ok(chapters) = webtoon::get_chapters(&client, url).await {
+            total_chapters += chapters.len();
+        }
+    }
+
+    println!("============================================");
+    println!("TOTAL CHAPTERS FROM {} SERIES: {}", results.len().min(3), total_chapters);
+    println!("============================================");
+
+    Ok(())
+}
