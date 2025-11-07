@@ -10,3 +10,6 @@ pub mod config;
 pub mod models;
 pub mod sources;
 pub mod scraper;
+
+// Browser automation module (headless Chrome)
+pub mod browser;

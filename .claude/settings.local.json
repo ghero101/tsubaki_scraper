@@ -20,7 +20,11 @@
       "Bash(for file in flamecomics hivetoons kenscans qiscans nyxscans mavintranslations asmotoon)",
       "Bash(do echo \"=== $file ===\" head -20 \"src/sources/$file.rs\")",
       "Bash(for source in hivetoons kenscans qiscans nyxscans mavintranslations asmotoon)",
-      "Bash(do echo '=== $source ===' head -30 src/sources/$source.rs)"
+      "Bash(do echo '=== $source ===' head -30 src/sources/$source.rs)",
+      "Bash(hivetoons_series.html)",
+      "Bash(kenscans_series.html)",
+      "Bash(cargo add:*)",
+      "Bash($null)"
     ],
     "deny": [],
     "ask": []
