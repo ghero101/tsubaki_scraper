@@ -55,12 +55,14 @@ Last updated: 2025-11-07
 | **KenScans** | ✅ WORKING | 10 | 5-11/manga | Browser automation success! |
 | **Asmotoon** | ✅ WORKING | 10 | 5/manga | Browser automation success! |
 | **HiveToons** | ⚠️ PARTIAL | 10 | 1/manga | Series list works, chapters TBD |
-| **QIScans** | ⚠️ INVESTIGATING | 0 | - | May need URL/selector fixes |
-| **MavinTranslations** | ⚠️ INVESTIGATING | 0 | - | May need URL/selector fixes |
-| **NyxScans** | 📝 TODO | - | - | Not yet implemented |
+| **QIScans** | ❌ DOWN | 0 | - | Cloudflare Error 520 (server down) |
+| **MavinTranslations** | ❌ BLOCKED | 0 | - | {"error":"Access denied"} - Strong anti-bot |
+| **NyxScans** | ⚠️ COMPLEX | 0 | - | Module created, needs API investigation (client-side loading) |
+| **DrakeComic** | ⚠️ INVESTIGATING | 0 | - | Browser connects, needs selector work |
+| **ThunderScans** | ❌ OFFLINE | - | - | DNS error (domain offline/changed) |
 | Kagane | 📝 TODO | - | - | Needs JSON parser + browser |
 
-**Success Rate: 2/7 fully working, 1/7 partial, 2/7 investigating**
+**Success Rate: 2/9 fully working (22%), 1/9 partial, 4/9 blocked/down, 2/9 need work**
 
 ## 📊 METADATA ONLY (No chapters expected)
 
@@ -149,10 +151,18 @@ Lower priority (publishers/platforms):
 - Infrastructure proven: Browser automation works!
 
 **Phase 2 REMAINING:**
-- NyxScans (not yet implemented)
+- Investigate DrakeComic selectors
+- Investigate NyxScans API loading pattern
 - Kagane (needs JSON parser + browser)
-- Fix QIScans/MavinTranslations selectors
 - Investigate HiveToons chapter loading
+- QIScans/MavinTranslations blocked/down (not fixable)
+- ThunderScans offline (not fixable)
+
+**Phase 2 Learnings:**
+- QIScans: Cloudflare Error 520 - Server-side issue, not scraper bug
+- MavinTranslations: Strong anti-bot returning JSON {"error":"Access denied"}
+- NyxScans: Complex client-side API loading (no __NEXT_DATA__, loads after page render)
+- ThunderScans: Domain DNS not resolving - likely offline or migrated
 
 ### Phase 4: Fix ERROR Sources
 - GrimScans: Connection issues ("message unexpected or badly formatted")

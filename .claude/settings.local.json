@@ -26,7 +26,9 @@
       "Bash(cargo add:*)",
       "Bash($null)",
       "Bash(git reset:*)",
-      "Bash(.gitignore)"
+      "Bash(.gitignore)",
+      "Bash(__NEW_LINE__ sed -i 's|kenscans\\.com|asmotoon.com|g' src/sources/asmotoon_browser.rs)",
+      "Bash(__NEW_LINE__ sed -i 's|kenscans\\.com|thunderscans.com|g' src/sources/thunderscans_browser.rs)"
     ],
     "deny": [],
     "ask": []

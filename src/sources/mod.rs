@@ -31,6 +31,7 @@ pub mod qiscans_browser;
 pub mod mavintranslations_browser;
 pub mod asmotoon_browser;
 pub mod nyxscans;
+pub mod nyxscans_browser;
 pub mod mavintranslations;
 
 // Free scanlation sites
