@@ -7,6 +7,8 @@ mod sources;
 mod crawler;
 mod metadata;
 mod metrics;
+mod browser;
+mod cloudflare_bypass;
 
 // Public modules for testing and external use
 pub mod http_client;
@@ -1218,6 +1220,43 @@ async fn download_by_url(
     }
 }
 
+#[get("/sources")]
+async fn get_sources(data: web::Data<AppState>) -> impl Responder {
+    let conn = data.db.lock().unwrap();
+
+    match db::get_per_source_counts(&conn) {
+        Ok(sources) => {
+            let sources_with_chapters: Vec<_> = sources.into_iter()
+                .filter(|s| s.chapters > 0)
+                .collect();
+            HttpResponse::Ok().json(sources_with_chapters)
+        }
+        Err(e) => {
+            error!("Failed to get sources: {}", e);
+            HttpResponse::InternalServerError()
+                .json(serde_json::json!({"error": "Failed to retrieve sources"}))
+        }
+    }
+}
+
+#[get("/sources/{source_id}/manga")]
+async fn get_source_manga(
+    data: web::Data<AppState>,
+    source_id: web::Path<i32>,
+) -> impl Responder {
+    let conn = data.db.lock().unwrap();
+    let source_id = source_id.into_inner();
+
+    match db::get_manga_by_source(&conn, source_id) {
+        Ok(manga_list) => HttpResponse::Ok().json(manga_list),
+        Err(e) => {
+            error!("Failed to get manga for source {}: {}", source_id, e);
+            HttpResponse::InternalServerError()
+                .json(serde_json::json!({"error": "Failed to retrieve manga"}))
+        }
+    }
+}
+
 #[get("/stats")]
 async fn get_stats(data: web::Data<AppState>) -> impl Responder {
     let conn = data.db.lock().unwrap();
@@ -1547,6 +1586,8 @@ async fn main() -> std::io::Result<()> {
             .service(list_manga)
             .service(get_manga)
             .service(get_chapters)
+            .service(get_sources)
+            .service(get_source_manga)
             .service(get_stats)
             .service(get_metrics)
             .service(get_metrics_summary)

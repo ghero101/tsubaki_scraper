@@ -13,3 +13,6 @@ pub mod scraper;
 
 // Browser automation module (headless Chrome)
 pub mod browser;
+
+// Cloudflare bypass and anti-bot evasion
+pub mod cloudflare_bypass;

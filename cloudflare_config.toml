@@ -1,0 +1,38 @@
+# Cloudflare Bypass Configuration
+# Set enabled = true to activate advanced bypass features
+
+[proxy]
+enabled = false
+# Residential proxy list (rotate through these)
+# Format: "http://user:pass@ip:port" or "http://ip:port"
+proxies = [
+    # "http://username:password@proxy1.example.com:8080",
+    # "http://username:password@proxy2.example.com:8080",
+]
+rotation_interval_secs = 300  # Rotate proxy every 5 minutes
+
+[browser]
+headless = false  # Set to false for real Chrome (better bypass)
+window_size = "1920,1080"
+disable_webrtc = true
+disable_geolocation = true
+
+[fingerprint]
+enabled = true
+spoof_webgl = true
+spoof_canvas = true
+spoof_audio = true
+spoof_fonts = true
+random_user_agent = true
+
+[captcha]
+enabled = false
+# Supported: "2captcha", "anticaptcha", "capsolver"
+service = "2captcha"
+api_key = ""  # Add your API key here
+max_solve_time_secs = 120
+
+[session]
+enabled = true
+cookie_file = "cloudflare_sessions.json"
+session_lifetime_secs = 3600  # Reuse sessions for 1 hour
