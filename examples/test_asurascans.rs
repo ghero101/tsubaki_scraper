@@ -28,7 +28,7 @@ async fn main() {
                         println!("  ✓ Chapters: {}", chapters.len());
                         if !chapters.is_empty() {
                             println!("    First: {}", chapters[0].chapter_number);
-                            println!("    Last: {}", chapters[chapters.len()-1].chapter_number);
+                            println!("    Last: {}", chapters[chapters.len() - 1].chapter_number);
                         }
                         total_chapters += chapters.len();
                     }

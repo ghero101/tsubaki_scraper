@@ -57,7 +57,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("============================================");
 
     if total_chapters > 3 {
-        println!("\n✅ SUCCESS! Found {} chapters (was 3 with HTTP scraping)", total_chapters);
+        println!(
+            "\n✅ SUCCESS! Found {} chapters (was 3 with HTTP scraping)",
+            total_chapters
+        );
         println!("Browser automation is working for KenScans!");
     } else {
         println!("\n⚠ WARNING: Only found {} chapters", total_chapters);

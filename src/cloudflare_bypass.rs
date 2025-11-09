@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CloudflareConfig {
@@ -95,7 +95,11 @@ impl ProxyRotator {
         if self.last_rotation.elapsed().unwrap_or(Duration::ZERO) >= self.rotation_interval {
             self.current_index = (self.current_index + 1) % self.proxies.len();
             self.last_rotation = SystemTime::now();
-            log::info!("Rotated to proxy {}/{}", self.current_index + 1, self.proxies.len());
+            log::info!(
+                "Rotated to proxy {}/{}",
+                self.current_index + 1,
+                self.proxies.len()
+            );
         }
 
         Some(&self.proxies[self.current_index])
@@ -121,7 +125,9 @@ impl SessionManager {
         }
     }
 
-    fn load_sessions(file_path: &str) -> Result<HashMap<String, SessionData>, Box<dyn std::error::Error>> {
+    fn load_sessions(
+        file_path: &str,
+    ) -> Result<HashMap<String, SessionData>, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(file_path)?;
         let sessions: HashMap<String, SessionData> = serde_json::from_str(&content)?;
         Ok(sessions)
@@ -228,7 +234,8 @@ pub fn get_fingerprint_spoofing_script(config: &FingerprintConfig) -> String {
     let mut scripts = Vec::new();
 
     if config.spoof_webgl {
-        scripts.push(r#"
+        scripts.push(
+            r#"
             // Spoof WebGL
             const getParameter = WebGLRenderingContext.prototype.getParameter;
             WebGLRenderingContext.prototype.getParameter = function(parameter) {
@@ -240,11 +247,13 @@ pub fn get_fingerprint_spoofing_script(config: &FingerprintConfig) -> String {
                 }
                 return getParameter.call(this, parameter);
             };
-        "#);
+        "#,
+        );
     }
 
     if config.spoof_canvas {
-        scripts.push(r#"
+        scripts.push(
+            r#"
             // Spoof Canvas fingerprint
             const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
             HTMLCanvasElement.prototype.toDataURL = function() {
@@ -258,11 +267,13 @@ pub fn get_fingerprint_spoofing_script(config: &FingerprintConfig) -> String {
                 }
                 return originalToDataURL.apply(this, arguments);
             };
-        "#);
+        "#,
+        );
     }
 
     if config.spoof_audio {
-        scripts.push(r#"
+        scripts.push(
+            r#"
             // Spoof Audio Context
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (AudioContext) {
@@ -276,11 +287,13 @@ pub fn get_fingerprint_spoofing_script(config: &FingerprintConfig) -> String {
                     return oscillator;
                 };
             }
-        "#);
+        "#,
+        );
     }
 
     if config.spoof_fonts {
-        scripts.push(r#"
+        scripts.push(
+            r#"
             // Spoof Font fingerprinting
             Object.defineProperty(navigator, 'fonts', {
                 get: () => ({
@@ -297,11 +310,13 @@ pub fn get_fingerprint_spoofing_script(config: &FingerprintConfig) -> String {
                     size: 0
                 })
             });
-        "#);
+        "#,
+        );
     }
 
     // Remove navigator.webdriver
-    scripts.push(r#"
+    scripts.push(
+        r#"
         Object.defineProperty(navigator, 'webdriver', {
             get: () => undefined
         });
@@ -325,7 +340,8 @@ pub fn get_fingerprint_spoofing_script(config: &FingerprintConfig) -> String {
         delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
         delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
         delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
-    "#);
+    "#,
+    );
 
     scripts.join("\n")
 }

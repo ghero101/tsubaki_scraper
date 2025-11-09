@@ -1,6 +1,5 @@
 /// Integration tests for manga sources
 /// Tests both HTTP and browser-based implementations
-
 use rust_manga_scraper::http_client::EnhancedHttpClient;
 use std::time::Duration;
 
@@ -9,7 +8,9 @@ async fn test_enhanced_http_client_with_real_source() {
     let client = EnhancedHttpClient::new().expect("Failed to create client");
 
     // Test with a known working endpoint
-    let result = client.get_text("https://api.mangadex.org/manga?limit=1").await;
+    let result = client
+        .get_text("https://api.mangadex.org/manga?limit=1")
+        .await;
 
     match result {
         Ok(text) => {
@@ -17,7 +18,10 @@ async fn test_enhanced_http_client_with_real_source() {
             println!("✓ Enhanced HTTP client working with MangaDex API");
         }
         Err(e) => {
-            eprintln!("Warning: MangaDex API request failed (may be network issue): {}", e);
+            eprintln!(
+                "Warning: MangaDex API request failed (may be network issue): {}",
+                e
+            );
         }
     }
 }
@@ -28,11 +32,16 @@ async fn test_retry_logic_with_rate_limit() {
 
     // This endpoint returns 429 Too Many Requests
     let start = std::time::Instant::now();
-    let result = client.get_with_retry("https://httpbin.org/status/429").await;
+    let result = client
+        .get_with_retry("https://httpbin.org/status/429")
+        .await;
     let elapsed = start.elapsed();
 
     // Should have retried multiple times (takes at least initial delay * retries)
-    assert!(elapsed >= Duration::from_millis(500), "Should have retried with delays");
+    assert!(
+        elapsed >= Duration::from_millis(500),
+        "Should have retried with delays"
+    );
 
     // Will eventually fail or return 429
     match result {
@@ -64,7 +73,9 @@ async fn test_browser_client_availability() {
 async fn test_browser_basic_navigation() {
     use rust_manga_scraper::browser_client::BrowserClient;
 
-    let browser = BrowserClient::new().await.expect("Chrome/Chromium not installed");
+    let browser = BrowserClient::new()
+        .await
+        .expect("Chrome/Chromium not installed");
     let result = browser.get_html("https://example.com");
 
     match result {
@@ -80,7 +91,7 @@ async fn test_browser_basic_navigation() {
 
 #[tokio::test]
 async fn test_metrics_tracking() {
-    use rust_manga_scraper::metrics::{MetricsTracker, track_request};
+    use rust_manga_scraper::metrics::{track_request, MetricsTracker};
 
     let tracker = MetricsTracker::new();
 
@@ -88,7 +99,8 @@ async fn test_metrics_tracking() {
     let result = track_request(&tracker, "test_source", async {
         tokio::time::sleep(Duration::from_millis(100)).await;
         Ok::<_, String>(())
-    }).await;
+    })
+    .await;
 
     assert!(result.is_ok());
 
@@ -111,7 +123,10 @@ async fn test_config_loading() {
 
     println!("✓ Configuration loading working");
     println!("  Download dir: {}", config.download_dir);
-    println!("  Enhanced client: {}", config.bot_detection.enable_enhanced_client);
+    println!(
+        "  Enhanced client: {}",
+        config.bot_detection.enable_enhanced_client
+    );
     println!("  Browser enabled: {}", config.bot_detection.enable_browser);
 }
 
@@ -122,7 +137,10 @@ async fn test_config_create_http_client() {
     let config = Config::load();
     let client_result = config.bot_detection.create_http_client();
 
-    assert!(client_result.is_ok(), "Should create HTTP client from config");
+    assert!(
+        client_result.is_ok(),
+        "Should create HTTP client from config"
+    );
     println!("✓ HTTP client creation from config working");
 }
 

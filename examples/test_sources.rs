@@ -1,11 +1,10 @@
+use reqwest::Client;
 /// Test script for problematic manga sources
 ///
 /// Usage:
 ///   cargo run --example test_sources
 ///   cargo run --example test_sources -- --browser  # Test browser sources
-
 use std::time::Instant;
-use reqwest::Client;
 
 #[tokio::main]
 async fn main() {
@@ -76,7 +75,9 @@ async fn test_http_client() {
     match EnhancedHttpClient::new() {
         Ok(client) => {
             let start = Instant::now();
-            let _ = client.get_with_retry("https://httpbin.org/status/503").await;
+            let _ = client
+                .get_with_retry("https://httpbin.org/status/503")
+                .await;
             let elapsed = start.elapsed();
             if elapsed.as_millis() >= 500 {
                 println!("✓ Retried as expected ({}ms)", elapsed.as_millis());
@@ -96,8 +97,14 @@ async fn test_configuration() {
     println!("✓ Loaded");
 
     println!("    Download dir: {}", config.download_dir);
-    println!("    Enhanced client enabled: {}", config.bot_detection.enable_enhanced_client);
-    println!("    Browser enabled: {}", config.bot_detection.enable_browser);
+    println!(
+        "    Enhanced client enabled: {}",
+        config.bot_detection.enable_enhanced_client
+    );
+    println!(
+        "    Browser enabled: {}",
+        config.bot_detection.enable_browser
+    );
     println!("    Max retries: {}", config.bot_detection.max_retries);
     println!("    Timeout: {}s", config.bot_detection.timeout_secs);
 
@@ -115,7 +122,7 @@ async fn test_configuration() {
 }
 
 async fn test_metrics() {
-    use rust_manga_scraper::metrics::{MetricsTracker, track_request};
+    use rust_manga_scraper::metrics::{track_request, MetricsTracker};
     use std::time::Duration;
 
     let tracker = MetricsTracker::new();
@@ -124,19 +131,24 @@ async fn test_metrics() {
     let _ = track_request(&tracker, "test_source", async {
         tokio::time::sleep(Duration::from_millis(50)).await;
         Ok::<_, String>(())
-    }).await;
+    })
+    .await;
     println!("✓ Recorded");
 
     print!("  Recording failed request... ");
     let _ = track_request(&tracker, "test_source", async {
         Err::<(), _>("Test error".to_string())
-    }).await;
+    })
+    .await;
     println!("✓ Recorded");
 
     if let Some(metrics) = tracker.get_metrics("test_source") {
         println!("    Total requests: {}", metrics.total_requests);
         println!("    Success rate: {:.1}%", metrics.success_rate());
-        println!("    Avg response time: {:.2}ms", metrics.average_response_time_ms);
+        println!(
+            "    Avg response time: {:.2}ms",
+            metrics.average_response_time_ms
+        );
     }
 }
 
@@ -167,7 +179,11 @@ async fn test_problematic_sources_http() {
                 if status.is_success() {
                     println!("✓ Success ({}ms, status: {})", elapsed.as_millis(), status);
                 } else if status.as_u16() == 403 || status.as_u16() == 503 {
-                    println!("⚠ Blocked ({}ms, status: {}) - May need browser", elapsed.as_millis(), status);
+                    println!(
+                        "⚠ Blocked ({}ms, status: {}) - May need browser",
+                        elapsed.as_millis(),
+                        status
+                    );
                 } else {
                     println!("⚠ Status {} ({}ms)", status, elapsed.as_millis());
                 }
@@ -223,12 +239,10 @@ async fn test_browser_client() {
 
     print!("  Testing JavaScript execution... ");
     match BrowserClient::new() {
-        Ok(browser) => {
-            match browser.execute_script("https://example.com", "document.title") {
-                Ok(result) => println!("✓ Success: {}", result),
-                Err(e) => println!("✗ Failed: {}", e),
-            }
-        }
+        Ok(browser) => match browser.execute_script("https://example.com", "document.title") {
+            Ok(result) => println!("✓ Success: {}", result),
+            Err(e) => println!("✗ Failed: {}", e),
+        },
         Err(e) => println!("✗ Failed: {}", e),
     }
 }

@@ -43,7 +43,10 @@ pub fn seed_sources(conn: &Connection) -> Result<()> {
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (21, 'INKR Comics', 'https://inkr.com')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (22, 'Irodori Comics', 'https://irodoricomics.com')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (23, 'J-Novel Club', 'https://j-novel.club')", [])?;
-    conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (24, 'Kana', 'https://www.kana.fr')", [])?;
+    conn.execute(
+        "INSERT OR IGNORE INTO sources (id, name, url) VALUES (24, 'Kana', 'https://www.kana.fr')",
+        [],
+    )?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (25, 'Kenscans', 'https://kenscans.com')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (26, 'Kodansha Comics', 'https://kodansha.us')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (27, 'Kodoku Studio', 'https://kodokustudio.com')", [])?;
@@ -52,7 +55,10 @@ pub fn seed_sources(conn: &Connection) -> Result<()> {
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (30, 'Madarascans', 'https://madarascans.com')", [])?;
     // 1 is MangaDex already
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (31, 'Manhuaus', 'https://manhuaus.com')", [])?;
-    conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (32, 'Manta', 'https://manta.net')", [])?;
+    conn.execute(
+        "INSERT OR IGNORE INTO sources (id, name, url) VALUES (32, 'Manta', 'https://manta.net')",
+        [],
+    )?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (33, 'MediBang', 'https://medibang.com')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (34, 'Nyx Scans', 'https://nyxscans.com')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (35, 'One Peace Books', 'https://onepeacebooks.com')", [])?;
@@ -68,7 +74,10 @@ pub fn seed_sources(conn: &Connection) -> Result<()> {
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (44, 'Square Enix Manga', 'https://square-enix-books.com')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (45, 'StoneScape', 'https://stonescape.xyz')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (46, 'TOKYOPOP', 'https://tokyopop.com')", [])?;
-    conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (47, 'Tapas', 'https://tapas.io')", [])?;
+    conn.execute(
+        "INSERT OR IGNORE INTO sources (id, name, url) VALUES (47, 'Tapas', 'https://tapas.io')",
+        [],
+    )?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (48, 'Tappytoon', 'https://www.tappytoon.com')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (49, 'Temple Scan', 'https://templescan.net')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (50, 'Thunderscans', 'https://thunderscans.com')", [])?;
@@ -95,7 +104,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
         [],
     )?;
 
-conn.execute(
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS manga (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
@@ -277,7 +286,9 @@ pub fn get_per_source_counts(conn: &Connection) -> Result<Vec<PerSourceCounts>> 
         })
     })?;
     let mut out = Vec::new();
-    for r in rows { out.push(r?); }
+    for r in rows {
+        out.push(r?);
+    }
     Ok(out)
 }
 
@@ -520,4 +531,38 @@ pub fn get_manga_source_data_by_manga_id(
     }
 
     Ok(manga_source_data)
+}
+
+pub fn get_manga_by_source(conn: &Connection, source_id: i32) -> Result<Vec<Manga>> {
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT m.id, m.title, m.alt_titles, m.cover_url, m.description, m.tags, m.rating, \
+         m.monitored, m.check_interval_secs, m.discover_interval_secs, m.last_chapter_check, m.last_discover_check \
+         FROM manga m \
+         JOIN manga_source_data msd ON m.id = msd.manga_id \
+         WHERE msd.source_id = ?1"
+    )?;
+
+    let rows = stmt.query_map([source_id], |row| {
+        Ok(Manga {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            alt_titles: row.get(2)?,
+            cover_url: row.get(3)?,
+            description: row.get(4)?,
+            tags: row.get(5)?,
+            rating: row.get(6)?,
+            monitored: row.get(7)?,
+            check_interval_secs: row.get(8)?,
+            discover_interval_secs: row.get(9)?,
+            last_chapter_check: row.get(10)?,
+            last_discover_check: row.get(11)?,
+        })
+    })?;
+
+    let mut manga_list = Vec::new();
+    for row in rows {
+        manga_list.push(row?);
+    }
+
+    Ok(manga_list)
 }

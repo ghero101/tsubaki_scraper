@@ -21,7 +21,10 @@ pub fn search_manga_with_urls_browser(
     // Wait for page to load - try multiple selectors
     let wait_selectors = ["a[href*='/series/']", "div", "main", "body"];
     for selector in &wait_selectors {
-        if scraper.wait_for_selector_with_timeout(selector, Duration::from_secs(5)).is_ok() {
+        if scraper
+            .wait_for_selector_with_timeout(selector, Duration::from_secs(5))
+            .is_ok()
+        {
             break;
         }
     }
@@ -149,7 +152,10 @@ pub fn get_chapters_browser(
         format!("{}/api/series/{}/chapters", BASE_URL, series_slug),
         format!("{}/api/chapters/{}", BASE_URL, series_slug),
         format!("https://api.hivetoons.org/series/{}/chapters", series_slug),
-        format!("https://dashboard.hivetoons.org/api/series/{}/chapters", series_slug),
+        format!(
+            "https://dashboard.hivetoons.org/api/series/{}/chapters",
+            series_slug
+        ),
     ];
 
     for api_url in &api_patterns {
@@ -160,8 +166,10 @@ pub fn get_chapters_browser(
             Ok(response) if response.status().is_success() => {
                 eprintln!("DEBUG: Successfully fetched from {}", api_url);
                 if let Ok(text) = response.text() {
-                    eprintln!("DEBUG: API response (first 200 chars): {}",
-                        text.chars().take(200).collect::<String>());
+                    eprintln!(
+                        "DEBUG: API response (first 200 chars): {}",
+                        text.chars().take(200).collect::<String>()
+                    );
 
                     // Try to parse as JSON
                     // TODO: Implement JSON parsing for chapters
@@ -169,7 +177,11 @@ pub fn get_chapters_browser(
                 }
             }
             Ok(response) => {
-                eprintln!("DEBUG: API endpoint {} returned status: {}", api_url, response.status());
+                eprintln!(
+                    "DEBUG: API endpoint {} returned status: {}",
+                    api_url,
+                    response.status()
+                );
             }
             Err(e) => {
                 eprintln!("DEBUG: Failed to fetch {}: {}", api_url, e);
@@ -236,9 +248,6 @@ mod tests {
             extract_chapter_number("https://example.com/chapter/10", ""),
             "Chapter 10"
         );
-        assert_eq!(
-            extract_chapter_number("", "Chapter 42"),
-            "Chapter 42"
-        );
+        assert_eq!(extract_chapter_number("", "Chapter 42"), "Chapter 42");
     }
 }

@@ -12,7 +12,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(results) => {
             println!("✓ Found {} manga", results.len());
             if results.is_empty() {
-                println!("⚠ No manga found - check mavintranslations_series_list.html for debugging");
+                println!(
+                    "⚠ No manga found - check mavintranslations_series_list.html for debugging"
+                );
             } else {
                 for (i, (manga, url)) in results.iter().enumerate() {
                     println!("  {}. {} - {}", i + 1, manga.title, url);

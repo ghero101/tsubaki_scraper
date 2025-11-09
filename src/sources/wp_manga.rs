@@ -1,7 +1,7 @@
+use crate::models::{Chapter, Manga};
+use regex::Regex;
 use reqwest::{Client, Url};
 use scraper::{Html, Selector};
-use crate::models::{Manga, Chapter};
-use regex::Regex;
 use tokio::time::{sleep, Duration};
 
 /// Clean manga title by removing common metadata, badges, and navigation elements
@@ -17,9 +17,18 @@ fn clean_manga_title(title: &str) -> Option<String> {
 
     // Remove common prefixes
     let prefixes = [
-        "MANHWA", "MANHUA", "MANGA", "Manhua", "Manga",
-        "cover art not final", "Read free!", "Comics",
-        "🔥 Hot", "Hot", "NEW", "New"
+        "MANHWA",
+        "MANHUA",
+        "MANGA",
+        "Manhua",
+        "Manga",
+        "cover art not final",
+        "Read free!",
+        "Comics",
+        "🔥 Hot",
+        "Hot",
+        "NEW",
+        "New",
     ];
     for prefix in &prefixes {
         if cleaned.to_lowercase().starts_with(&prefix.to_lowercase()) {
@@ -74,16 +83,17 @@ fn clean_manga_title(title: &str) -> Option<String> {
 
     // Skip common navigation/UI elements (English and Korean)
     let skip_list = [
-        "next", "prev", "previous", "home", "menu", "search", "login", "register",
-        "series", "action", "manga", "older", "upcoming", "novel", "comics",
-        "랭킹",  // Korean: "Ranking"
-        "요일",  // Korean: "Day of week"
-        "신작",  // Korean: "New releases"
-        "장르",  // Korean: "Genre"
-        "완결",  // Korean: "Completed"
+        "next", "prev", "previous", "home", "menu", "search", "login", "register", "series",
+        "action", "manga", "older", "upcoming", "novel", "comics",
+        "랭킹", // Korean: "Ranking"
+        "요일", // Korean: "Day of week"
+        "신작", // Korean: "New releases"
+        "장르", // Korean: "Genre"
+        "완결", // Korean: "Completed"
     ];
     // Check both lowercase English and original (for non-ASCII like Korean)
-    if skip_list.contains(&cleaned.to_lowercase().as_str()) || skip_list.contains(&cleaned.as_str()) {
+    if skip_list.contains(&cleaned.to_lowercase().as_str()) || skip_list.contains(&cleaned.as_str())
+    {
         return None;
     }
 
@@ -124,18 +134,29 @@ async fn fetch_text(client: &Client, url: &str) -> Result<String, reqwest::Error
                 );
 
                 if is_retryable && attempt < retry_delays.len() - 1 {
-                    log::warn!("Retryable status {} for {}, retrying in {}ms", status, url, delay);
+                    log::warn!(
+                        "Retryable status {} for {}, retrying in {}ms",
+                        status,
+                        url,
+                        delay
+                    );
                     sleep(Duration::from_millis(delay)).await;
                     continue;
                 }
                 match resp.error_for_status() {
-                    Ok(ok) => { return ok.text().await; }
-                    Err(e) => { last_err = Some(e); }
+                    Ok(ok) => {
+                        return ok.text().await;
+                    }
+                    Err(e) => {
+                        last_err = Some(e);
+                    }
                 }
             }
             Err(e) => {
                 // Retry on network errors
-                if (e.is_timeout() || e.is_connect() || e.is_request()) && attempt < retry_delays.len() - 1 {
+                if (e.is_timeout() || e.is_connect() || e.is_request())
+                    && attempt < retry_delays.len() - 1
+                {
                     log::warn!("Network error for {}, retrying in {}ms: {}", url, delay, e);
                     sleep(Duration::from_millis(delay)).await;
                     last_err = Some(e);
@@ -151,17 +172,20 @@ async fn fetch_text(client: &Client, url: &str) -> Result<String, reqwest::Error
     Err(last_err.unwrap())
 }
 
-pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+pub async fn search_manga_with_urls_base(
+    client: &Client,
+    base_url: &str,
+) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     // Try multiple URL patterns to support different site configurations
     let url_patterns = vec![
-        "/manga/?page={}",   // Standard WP-Manga
-        "/series?page={}",   // Alternative (stonescape, etc)
-        "/?page={}",         // Home page pagination (some sites)
+        "/manga/?page={}", // Standard WP-Manga
+        "/series?page={}", // Alternative (stonescape, etc)
+        "/?page={}",       // Home page pagination (some sites)
     ];
-    
+
     let mut working_pattern: Option<&str> = None;
     let mut out = Vec::new();
-    
+
     // Test first page with each pattern to find working one
     for pattern in &url_patterns {
         let test_url = base_url.to_owned() + &pattern.replace("{}", "1");
@@ -174,38 +198,40 @@ pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Res
             }
         }
     }
-    
+
     let pattern = working_pattern.unwrap_or("/manga/?page={}");
     let mut page = 1u32;
-    
+
     loop {
         let url = base_url.to_owned() + &pattern.replace("{}", &page.to_string());
         let response = fetch_text(client, &url).await?;
-    let document = Html::parse_document(&response);
-        
+        let document = Html::parse_document(&response);
+
         // Try multiple selector patterns for different theme types
         // Order matters: try most specific first
         let selector_patterns = vec![
-            ("div.page-item-detail", "h3 > a"),          // Standard WP-Manga
-            ("div.page-listing-item", "h3 a"),           // MadaraProject theme (firescans, etc)
-            ("div.listupd .bs .bsx", "a"),               // MangaStream nested (rizzcomic)
-            ("div.bsx", "a"),                             // MangaStream/MangaBuddy theme
-            ("div.manga-item", "a.manga-link"),          // Custom theme
-            ("div.utao .uta .imgu", "a"),                // MangaStream variant
-            ("article.bs", "a"),                          // Article-based layout
-            ("div.post-item", "h2 a"),                    // Post-based layout
-            ("div.series-item", "a.series-link"),        // Series layout
+            ("div.page-item-detail", "h3 > a"),   // Standard WP-Manga
+            ("div.page-listing-item", "h3 a"),    // MadaraProject theme (firescans, etc)
+            ("div.listupd .bs .bsx", "a"),        // MangaStream nested (rizzcomic)
+            ("div.bsx", "a"),                     // MangaStream/MangaBuddy theme
+            ("div.manga-item", "a.manga-link"),   // Custom theme
+            ("div.utao .uta .imgu", "a"),         // MangaStream variant
+            ("article.bs", "a"),                  // Article-based layout
+            ("div.post-item", "h2 a"),            // Post-based layout
+            ("div.series-item", "a.series-link"), // Series layout
         ];
-        
+
         let mut items = 0;
-        
+
         for (container_sel, link_sel) in &selector_patterns {
             if let Ok(container_selector) = Selector::parse(container_sel) {
                 for element in document.select(&container_selector) {
                     let mut title: String;
                     let series_url: String;
-                    
-                    if let Some(link_element) = element.select(&Selector::parse(link_sel).unwrap()).next() {
+
+                    if let Some(link_element) =
+                        element.select(&Selector::parse(link_sel).unwrap()).next()
+                    {
                         series_url = link_element.value().attr("href").unwrap_or("").to_string();
 
                         // Try multiple ways to get title
@@ -213,9 +239,13 @@ pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Res
                             title = link_element.text().collect::<String>().trim().to_string();
                         } else {
                             // For other patterns, try title attribute first, then text
-                            title = link_element.value().attr("title")
+                            title = link_element
+                                .value()
+                                .attr("title")
                                 .map(|s| s.to_string())
-                                .or_else(|| Some(link_element.text().collect::<String>().trim().to_string()))
+                                .or_else(|| {
+                                    Some(link_element.text().collect::<String>().trim().to_string())
+                                })
                                 .unwrap_or_default();
                         }
 
@@ -228,30 +258,53 @@ pub async fn search_manga_with_urls_base(client: &Client, base_url: &str) -> Res
                         let cover_url = element
                             .select(&Selector::parse("img").unwrap())
                             .next()
-                            .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
+                            .and_then(|e| {
+                                e.value().attr("src").or_else(|| e.value().attr("data-src"))
+                            })
                             .map(|s| s.to_string());
 
                         if !series_url.is_empty() && !title.is_empty() {
                             items += 1;
-                            out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                            out.push((
+                                Manga {
+                                    id: String::new(),
+                                    title,
+                                    alt_titles: None,
+                                    cover_url,
+                                    description: None,
+                                    tags: None,
+                                    rating: None,
+                                    monitored: None,
+                                    check_interval_secs: None,
+                                    discover_interval_secs: None,
+                                    last_chapter_check: None,
+                                    last_discover_check: None,
+                                },
+                                series_url,
+                            ));
                         }
                     }
                 }
-                
+
                 // If we found items with this pattern, stop trying others
                 if items > 0 {
                     break;
                 }
             }
         }
-        if items == 0 || page > 100 { break; }
+        if items == 0 || page > 100 {
+            break;
+        }
         page += 1;
         sleep(Duration::from_millis(150)).await;
     }
     Ok(out)
 }
 
-pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+pub async fn search_manga_first_page(
+    client: &Client,
+    base_url: &str,
+) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     // Try multiple URL patterns and parse each until we find results
     let url_patterns = vec![
         "/", // Many sites list on root
@@ -262,15 +315,15 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
 
     // Selector patterns to extract items from a fetched page
     let selector_patterns = vec![
-        ("div.page-item-detail", "h3 > a"),          // Standard WP-Manga
-        ("div.page-listing-item", "h3 a"),           // MadaraProject theme
-        ("div.listupd .bs .bsx", "a"),               // MangaStream nested
-        ("div.bsx", "a"),                             // MangaStream/MangaBuddy theme
-        ("div.manga-item", "a.manga-link"),          // Custom theme
-        ("div.utao .uta .imgu", "a"),                // MangaStream variant
-        ("article.bs", "a"),                          // Article-based layout
-        ("div.post-item", "h2 a"),                    // Post-based layout
-        ("div.series-item", "a.series-link"),        // Series layout
+        ("div.page-item-detail", "h3 > a"),   // Standard WP-Manga
+        ("div.page-listing-item", "h3 a"),    // MadaraProject theme
+        ("div.listupd .bs .bsx", "a"),        // MangaStream nested
+        ("div.bsx", "a"),                     // MangaStream/MangaBuddy theme
+        ("div.manga-item", "a.manga-link"),   // Custom theme
+        ("div.utao .uta .imgu", "a"),         // MangaStream variant
+        ("article.bs", "a"),                  // Article-based layout
+        ("div.post-item", "h2 a"),            // Post-based layout
+        ("div.series-item", "a.series-link"), // Series layout
     ];
 
     for pattern in &url_patterns {
@@ -281,14 +334,30 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
             for (container_sel, link_sel) in &selector_patterns {
                 if let Ok(container_selector) = Selector::parse(container_sel) {
                     for element in document.select(&container_selector) {
-                        if let Some(link_element) = element.select(&Selector::parse(link_sel).unwrap()).next() {
-                            let series_url = link_element.value().attr("href").unwrap_or("").to_string();
-                            let mut title: String = if *link_sel == "h3 > a" || *link_sel == "h3 a" || *link_sel == "h2 a" {
+                        if let Some(link_element) =
+                            element.select(&Selector::parse(link_sel).unwrap()).next()
+                        {
+                            let series_url =
+                                link_element.value().attr("href").unwrap_or("").to_string();
+                            let mut title: String = if *link_sel == "h3 > a"
+                                || *link_sel == "h3 a"
+                                || *link_sel == "h2 a"
+                            {
                                 link_element.text().collect::<String>().trim().to_string()
                             } else {
-                                link_element.value().attr("title")
+                                link_element
+                                    .value()
+                                    .attr("title")
                                     .map(|s| s.to_string())
-                                    .or_else(|| Some(link_element.text().collect::<String>().trim().to_string()))
+                                    .or_else(|| {
+                                        Some(
+                                            link_element
+                                                .text()
+                                                .collect::<String>()
+                                                .trim()
+                                                .to_string(),
+                                        )
+                                    })
                                     .unwrap_or_default()
                             };
 
@@ -301,14 +370,34 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                             let cover_url = element
                                 .select(&Selector::parse("img").unwrap())
                                 .next()
-                                .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
+                                .and_then(|e| {
+                                    e.value().attr("src").or_else(|| e.value().attr("data-src"))
+                                })
                                 .map(|s| s.to_string());
                             if !series_url.is_empty() && !title.is_empty() {
-                                out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                                out.push((
+                                    Manga {
+                                        id: String::new(),
+                                        title,
+                                        alt_titles: None,
+                                        cover_url,
+                                        description: None,
+                                        tags: None,
+                                        rating: None,
+                                        monitored: None,
+                                        check_interval_secs: None,
+                                        discover_interval_secs: None,
+                                        last_chapter_check: None,
+                                        last_discover_check: None,
+                                    },
+                                    series_url,
+                                ));
                             }
                         }
                     }
-                    if !out.is_empty() { return Ok(out); }
+                    if !out.is_empty() {
+                        return Ok(out);
+                    }
                 }
             }
             // Fallback: scan all anchors for likely series links if structured selectors failed
@@ -318,12 +407,20 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
             for a in document.select(&a_sel) {
                 if let Some(href) = a.value().attr("href") {
                     let h = href.trim();
-                    if h.is_empty() { continue; }
+                    if h.is_empty() {
+                        continue;
+                    }
                     // Heuristics: include links that look like series pages, exclude chapters/tags
                     let l = h.to_lowercase();
-                    let looks_series = l.contains("/series/") || (l.contains("/manga/") && !l.contains("/chapter/"));
-                    if !looks_series { continue; }
-                    let title_text_raw = a.value().attr("title").map(|s| s.trim().to_string())
+                    let looks_series = l.contains("/series/")
+                        || (l.contains("/manga/") && !l.contains("/chapter/"));
+                    if !looks_series {
+                        continue;
+                    }
+                    let title_text_raw = a
+                        .value()
+                        .attr("title")
+                        .map(|s| s.trim().to_string())
                         .filter(|s| !s.is_empty())
                         .unwrap_or_else(|| a.text().collect::<String>().trim().to_string());
 
@@ -345,11 +442,29 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
                     };
                     // title_text is already cleaned and validated by clean_manga_title
                     if seen.insert(series_url.clone()) {
-                        out.push((Manga { id: String::new(), title: title_text, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                        out.push((
+                            Manga {
+                                id: String::new(),
+                                title: title_text,
+                                alt_titles: None,
+                                cover_url: None,
+                                description: None,
+                                tags: None,
+                                rating: None,
+                                monitored: None,
+                                check_interval_secs: None,
+                                discover_interval_secs: None,
+                                last_chapter_check: None,
+                                last_discover_check: None,
+                            },
+                            series_url,
+                        ));
                     }
                 }
             }
-            if !out.is_empty() { return Ok(out); }
+            if !out.is_empty() {
+                return Ok(out);
+            }
             // If no selectors or fallbacks matched on this pattern, try next pattern
         }
     }
@@ -359,14 +474,30 @@ pub async fn search_manga_first_page(client: &Client, base_url: &str) -> Result<
 
 fn derive_chapter_label(text: &str, href: &str) -> String {
     let t = text.trim();
-    if !t.is_empty() && t != "#" { return t.to_string(); }
+    if !t.is_empty() && t != "#" {
+        return t.to_string();
+    }
     let lower = href.to_lowercase();
-    if let Some(cap) = Regex::new(r"chapter[-/](\d+(?:\.\d+)?)").unwrap().captures(&lower) { return format!("Ch.{}", &cap[1]); }
-    if let Some(cap) = Regex::new(r"vol(?:ume)?[-/](\d+)").unwrap().captures(&lower) { return format!("Vol.{}", &cap[1]); }
+    if let Some(cap) = Regex::new(r"chapter[-/](\d+(?:\.\d+)?)")
+        .unwrap()
+        .captures(&lower)
+    {
+        return format!("Ch.{}", &cap[1]);
+    }
+    if let Some(cap) = Regex::new(r"vol(?:ume)?[-/](\d+)")
+        .unwrap()
+        .captures(&lower)
+    {
+        return format!("Vol.{}", &cap[1]);
+    }
     href.to_string()
 }
 
-pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str) -> Result<Vec<Chapter>, reqwest::Error> {
+pub async fn get_chapters_base(
+    client: &Client,
+    base_url: &str,
+    series_url: &str,
+) -> Result<Vec<Chapter>, reqwest::Error> {
     let response = fetch_text(client, series_url).await?;
     let document = Html::parse_document(&response);
     let selectors = [
@@ -382,18 +513,18 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
         "div.chapters-list a",
         "ul.chapters a",
         // Additional common patterns for various WP-Manga themes
-        "div.chbox a",                          // Chapter box variant
-        "ul.clstyle a",                         // Chapter list style
-        "div.epcheck a",                        // Episode check variant
-        "div.chapterlist a",                    // Single word variant (no hyphen)
-        "ul.version-chap a",                    // Version chapter without ul.main
-        "div.chapter-item a",                   // Chapter item variant
-        "li.parent.has-child a",                // Nested chapter lists
-        "div.eplister ul li a",                 // Nested eplister
-        "div#chapter-heading + div a",          // Chapters after heading
-        "div.page-content-listing a[href*='chapter']",  // Content listing with chapter in URL
-        "ul.list-chapters a",                   // List chapters variant
-        "div.manga-chapters a[href*='chapter']", // Manga chapters container
+        "div.chbox a",                                 // Chapter box variant
+        "ul.clstyle a",                                // Chapter list style
+        "div.epcheck a",                               // Episode check variant
+        "div.chapterlist a",                           // Single word variant (no hyphen)
+        "ul.version-chap a",                           // Version chapter without ul.main
+        "div.chapter-item a",                          // Chapter item variant
+        "li.parent.has-child a",                       // Nested chapter lists
+        "div.eplister ul li a",                        // Nested eplister
+        "div#chapter-heading + div a",                 // Chapters after heading
+        "div.page-content-listing a[href*='chapter']", // Content listing with chapter in URL
+        "ul.list-chapters a",                          // List chapters variant
+        "div.manga-chapters a[href*='chapter']",       // Manga chapters container
     ];
     let mut chapters = Vec::new();
     let series_base = Url::parse(series_url).ok();
@@ -402,10 +533,26 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
         if let Ok(selector) = Selector::parse(sel) {
             for a in document.select(&selector) {
                 let chapter_title = a.text().collect::<String>().trim().to_string();
-                if let Some(href) = a.value().attr("href").or_else(|| a.value().attr("data-href")) {
+                if let Some(href) = a
+                    .value()
+                    .attr("href")
+                    .or_else(|| a.value().attr("data-href"))
+                {
                     let label = derive_chapter_label(&chapter_title, href);
-                    let abs = if let Some(base) = &series_base { base.join(href).map(|u| u.to_string()).unwrap_or_else(|_| href.to_string()) } else { href.to_string() };
-                    chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: label, url: abs, scraped: false });
+                    let abs = if let Some(base) = &series_base {
+                        base.join(href)
+                            .map(|u| u.to_string())
+                            .unwrap_or_else(|_| href.to_string())
+                    } else {
+                        href.to_string()
+                    };
+                    chapters.push(Chapter {
+                        id: 0,
+                        manga_source_data_id: 0,
+                        chapter_number: label,
+                        url: abs,
+                        scraped: false,
+                    });
                 }
             }
             if !chapters.is_empty() {
@@ -458,7 +605,9 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
         let mut post_id: Option<String> = None;
         if let Ok(sel) = Selector::parse("div#manga-chapters-holder") {
             if let Some(div) = document.select(&sel).next() {
-                if let Some(did) = div.value().attr("data-id") { post_id = Some(did.to_string()); }
+                if let Some(did) = div.value().attr("data-id") {
+                    post_id = Some(did.to_string());
+                }
             }
         }
         if post_id.is_none() {
@@ -466,7 +615,10 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
             let re = Regex::new(r"manga_id\s*=\s*(\d+)").unwrap();
             for s in document.select(&script_sel) {
                 let t = s.text().collect::<String>();
-                if let Some(cap) = re.captures(&t) { post_id = Some(cap[1].to_string()); break; }
+                if let Some(cap) = re.captures(&t) {
+                    post_id = Some(cap[1].to_string());
+                    break;
+                }
             }
         }
         if let Some(pid) = post_id {
@@ -482,11 +634,27 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
             let html = Html::parse_fragment(&text);
             let a_sel = Selector::parse("a").unwrap();
             for a in html.select(&a_sel) {
-                if let Some(href) = a.value().attr("href").or_else(|| a.value().attr("data-href")) {
+                if let Some(href) = a
+                    .value()
+                    .attr("href")
+                    .or_else(|| a.value().attr("data-href"))
+                {
                     let t = a.text().collect::<String>().trim().to_string();
                     let label = derive_chapter_label(&t, href);
-                    let abs = if let Some(base) = &series_base { base.join(href).map(|u| u.to_string()).unwrap_or_else(|_| href.to_string()) } else { href.to_string() };
-                    chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: label, url: abs, scraped: false });
+                    let abs = if let Some(base) = &series_base {
+                        base.join(href)
+                            .map(|u| u.to_string())
+                            .unwrap_or_else(|_| href.to_string())
+                    } else {
+                        href.to_string()
+                    };
+                    chapters.push(Chapter {
+                        id: 0,
+                        manga_source_data_id: 0,
+                        chapter_number: label,
+                        url: abs,
+                        scraped: false,
+                    });
                 }
             }
         }
@@ -494,7 +662,10 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
 
     // Final fallback: scan all anchors for chapter-like URLs
     if chapters.is_empty() {
-        log::debug!("All primary selectors failed, trying final anchor scan for: {}", series_url);
+        log::debug!(
+            "All primary selectors failed, trying final anchor scan for: {}",
+            series_url
+        );
         if let Ok(a_sel) = Selector::parse("a") {
             let mut seen_urls = std::collections::HashSet::new();
             for a in document.select(&a_sel) {
@@ -532,19 +703,24 @@ pub async fn get_chapters_base(client: &Client, base_url: &str, series_url: &str
 
                         let label = derive_chapter_label(&t, href);
                         let abs = if let Some(base) = &series_base {
-                            base.join(href).map(|u| u.to_string()).unwrap_or_else(|_| href.to_string())
+                            base.join(href)
+                                .map(|u| u.to_string())
+                                .unwrap_or_else(|_| href.to_string())
                         } else {
                             href.to_string()
                         };
 
                         // Only add if it looks like a valid chapter URL and we haven't seen it
-                        if !label.is_empty() && abs.contains("http") && seen_urls.insert(abs.clone()) {
+                        if !label.is_empty()
+                            && abs.contains("http")
+                            && seen_urls.insert(abs.clone())
+                        {
                             chapters.push(Chapter {
                                 id: 0,
                                 manga_source_data_id: 0,
                                 chapter_number: label,
                                 url: abs,
-                                scraped: false
+                                scraped: false,
                             });
                         }
                     }

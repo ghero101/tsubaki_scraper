@@ -1,8 +1,8 @@
 #![allow(dead_code)]
+use crate::models::{Chapter, Manga};
 /// Others - Commercial/Paid Source
 /// This source requires authentication/payment and is not available for free scraping
 use reqwest::Client;
-use crate::models::{Manga, Chapter};
 
 const BASE_URL: &str = "https://example.com/others";
 
@@ -11,7 +11,10 @@ pub async fn search_manga_with_urls(
     _title: &str,
 ) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     // Commercial source - returns empty to prevent errors
-    log::warn!("{} is a commercial/paid source and requires authentication", "Others");
+    log::warn!(
+        "{} is a commercial/paid source and requires authentication",
+        "Others"
+    );
     Ok(Vec::new())
 }
 

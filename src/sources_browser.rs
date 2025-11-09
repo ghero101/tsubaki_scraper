@@ -6,9 +6,8 @@
 /// Usage: Enable browser support in config.toml by setting:
 /// [bot_detection]
 /// enable_browser = true
-
 use crate::browser_client::BrowserClient;
-use crate::models::{Manga, Chapter};
+use crate::models::{Chapter, Manga};
 use scraper::{Html, Selector};
 
 /// Asmotoon - Browser-based implementation
@@ -17,12 +16,18 @@ pub mod asmotoon_browser {
 
     const BASE_URL: &str = "https://asmotoon.com";
 
-    pub async fn search_manga_with_urls(title: &str) -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls(
+        title: &str,
+    ) -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
         let browser = BrowserClient::new().await?;
         let url = format!("{}/?s={}&post_type=wp-manga", BASE_URL, title);
 
         log::info!("Fetching manga list from {} using browser", url);
-        let html = browser.get_html_wait_for(&url, "div.page-item-detail", Some(std::time::Duration::from_secs(10)))?;
+        let html = browser.get_html_wait_for(
+            &url,
+            "div.page-item-detail",
+            Some(std::time::Duration::from_secs(10)),
+        )?;
 
         Ok(parse_search_page(&html))
     }
@@ -31,7 +36,11 @@ pub mod asmotoon_browser {
         let browser = BrowserClient::new().await?;
 
         log::info!("Fetching chapters from {} using browser", manga_url);
-        let html = browser.get_html_wait_for(manga_url, "li.wp-manga-chapter", Some(std::time::Duration::from_secs(10)))?;
+        let html = browser.get_html_wait_for(
+            manga_url,
+            "li.wp-manga-chapter",
+            Some(std::time::Duration::from_secs(10)),
+        )?;
 
         let document = Html::parse_document(&html);
         let selector = Selector::parse("li.wp-manga-chapter").unwrap();
@@ -102,21 +111,23 @@ pub mod asmotoon_browser {
 pub mod wp_manga_browser {
     use super::*;
 
-    pub async fn search_manga_with_urls_base(base_url: &str) -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls_base(
+        base_url: &str,
+    ) -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
         let browser = BrowserClient::new().await?;
 
         // Try multiple URL patterns
-        let url_patterns = vec![
-            "/manga/?page=1",
-            "/series?page=1",
-            "/?page=1",
-        ];
+        let url_patterns = vec!["/manga/?page=1", "/series?page=1", "/?page=1"];
 
         for pattern in &url_patterns {
             let url = base_url.to_owned() + pattern;
             log::info!("Trying URL pattern: {}", url);
 
-            match browser.get_html_wait_for(&url, "div.page-item-detail, div.bsx, article.bs", Some(std::time::Duration::from_secs(10))) {
+            match browser.get_html_wait_for(
+                &url,
+                "div.page-item-detail, div.bsx, article.bs",
+                Some(std::time::Duration::from_secs(10)),
+            ) {
                 Ok(html) => {
                     let results = parse_manga_page(&html, base_url);
                     if !results.is_empty() {
@@ -133,11 +144,18 @@ pub mod wp_manga_browser {
         Ok(Vec::new())
     }
 
-    pub async fn get_chapters_base(base_url: &str, series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters_base(
+        base_url: &str,
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         let browser = BrowserClient::new().await?;
 
         log::info!("Fetching chapters from {} using browser", series_url);
-        let html = browser.get_html_wait_for(series_url, "li.wp-manga-chapter, div.eplister, div.bxcl", Some(std::time::Duration::from_secs(10)))?;
+        let html = browser.get_html_wait_for(
+            series_url,
+            "li.wp-manga-chapter, div.eplister, div.bxcl",
+            Some(std::time::Duration::from_secs(10)),
+        )?;
 
         let document = Html::parse_document(&html);
         let selectors = [
@@ -205,21 +223,30 @@ pub mod wp_manga_browser {
                 let mut results = Vec::new();
 
                 for element in document.select(&container_selector) {
-                    if let Some(link_element) = element.select(&Selector::parse(link_sel).unwrap()).next() {
-                        let series_url = link_element.value().attr("href").unwrap_or("").to_string();
+                    if let Some(link_element) =
+                        element.select(&Selector::parse(link_sel).unwrap()).next()
+                    {
+                        let series_url =
+                            link_element.value().attr("href").unwrap_or("").to_string();
                         let title = if *link_sel == "h3 > a" || *link_sel == "h3 a" {
                             link_element.text().collect::<String>().trim().to_string()
                         } else {
-                            link_element.value().attr("title")
+                            link_element
+                                .value()
+                                .attr("title")
                                 .map(|s| s.to_string())
-                                .or_else(|| Some(link_element.text().collect::<String>().trim().to_string()))
+                                .or_else(|| {
+                                    Some(link_element.text().collect::<String>().trim().to_string())
+                                })
                                 .unwrap_or_default()
                         };
 
                         let cover_url = element
                             .select(&Selector::parse("img").unwrap())
                             .next()
-                            .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
+                            .and_then(|e| {
+                                e.value().attr("src").or_else(|| e.value().attr("data-src"))
+                            })
                             .map(|s| s.to_string());
 
                         if !series_url.is_empty() && !title.is_empty() {
@@ -259,11 +286,14 @@ pub mod hivetoons_browser {
     use super::*;
     const BASE_URL: &str = "https://hivetoons.com";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         super::wp_manga_browser::search_manga_with_urls_base(BASE_URL).await
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }
 }
@@ -273,11 +303,14 @@ pub mod kenscans_browser {
     use super::*;
     const BASE_URL: &str = "https://kenscans.com";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         super::wp_manga_browser::search_manga_with_urls_base(BASE_URL).await
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }
 }
@@ -287,11 +320,14 @@ pub mod qiscans_browser {
     use super::*;
     const BASE_URL: &str = "https://qiscans.org";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         super::wp_manga_browser::search_manga_with_urls_base(BASE_URL).await
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }
 }
@@ -301,11 +337,14 @@ pub mod nyxscans_browser {
     use super::*;
     const BASE_URL: &str = "https://nyxscans.com";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         super::wp_manga_browser::search_manga_with_urls_base(BASE_URL).await
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }
 }
@@ -315,7 +354,8 @@ pub mod drakecomic_browser {
     use super::*;
     const BASE_URL: &str = "https://drakecomic.org";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         let browser = BrowserClient::new().await?;
         let url = format!("{}/manga/?page=1", BASE_URL);
 
@@ -325,10 +365,15 @@ pub mod drakecomic_browser {
         Ok(super::wp_manga_browser::parse_manga_page(&html, BASE_URL))
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         let browser = BrowserClient::new().await?;
 
-        log::info!("Fetching chapters from {} with Cloudflare bypass", series_url);
+        log::info!(
+            "Fetching chapters from {} with Cloudflare bypass",
+            series_url
+        );
         let html = browser.navigate_with_cloudflare_bypass(series_url)?;
 
         // Parse chapters from the HTML directly
@@ -389,7 +434,8 @@ pub mod madarascans_browser {
     use super::*;
     const BASE_URL: &str = "https://madarascans.com";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         let browser = BrowserClient::new().await?;
         let url = format!("{}/manga/?page=1", BASE_URL);
 
@@ -399,10 +445,15 @@ pub mod madarascans_browser {
         Ok(super::wp_manga_browser::parse_manga_page(&html, BASE_URL))
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         let browser = BrowserClient::new().await?;
 
-        log::info!("Fetching chapters from {} with Cloudflare bypass", series_url);
+        log::info!(
+            "Fetching chapters from {} with Cloudflare bypass",
+            series_url
+        );
         let html = browser.navigate_with_cloudflare_bypass(series_url)?;
 
         // Parse chapters from the HTML directly
@@ -463,7 +514,8 @@ pub mod rizzfables_browser {
     use super::*;
     const BASE_URL: &str = "https://rizzfables.com";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         let browser = BrowserClient::new().await?;
 
         // Try series page first, then manga page
@@ -486,10 +538,15 @@ pub mod rizzfables_browser {
         Ok(Vec::new())
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         let browser = BrowserClient::new().await?;
 
-        log::info!("Fetching chapters from {} with Cloudflare bypass", series_url);
+        log::info!(
+            "Fetching chapters from {} with Cloudflare bypass",
+            series_url
+        );
         let html = browser.navigate_with_cloudflare_bypass(series_url)?;
 
         // Parse chapters from the HTML directly
@@ -550,11 +607,14 @@ pub mod sirenscans_browser {
     use super::*;
     const BASE_URL: &str = "https://sirenscans.com";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         super::wp_manga_browser::search_manga_with_urls_base(BASE_URL).await
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }
 }
@@ -564,11 +624,14 @@ pub mod vortexscans_browser {
     use super::*;
     const BASE_URL: &str = "https://vortexscans.org";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         super::wp_manga_browser::search_manga_with_urls_base(BASE_URL).await
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }
 }
@@ -578,11 +641,14 @@ pub mod grimscans_browser {
     use super::*;
     const BASE_URL: &str = "https://grimscans.com";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         super::wp_manga_browser::search_manga_with_urls_base(BASE_URL).await
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }
 }
@@ -592,11 +658,14 @@ pub mod thunderscans_browser {
     use super::*;
     const BASE_URL: &str = "https://en-thunderscans.com";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         super::wp_manga_browser::search_manga_with_urls_base(BASE_URL).await
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }
 }
@@ -606,11 +675,14 @@ pub mod templescan_browser {
     use super::*;
     const BASE_URL: &str = "https://templetoons.com";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         super::wp_manga_browser::search_manga_with_urls_base(BASE_URL).await
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         super::wp_manga_browser::get_chapters_base(BASE_URL, series_url).await
     }
 }
@@ -620,12 +692,17 @@ pub mod kagane_browser {
     use super::*;
     const BASE_URL: &str = "https://kagane.org";
 
-    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>> {
+    pub async fn search_manga_with_urls() -> Result<Vec<(Manga, String)>, Box<dyn std::error::Error>>
+    {
         let browser = BrowserClient::new().await?;
         let url = format!("{}/search?sort=avg_views_today%2Cdesc&exg=", BASE_URL);
 
         log::info!("Fetching from {} using browser for JS rendering", url);
-        let html = browser.get_html_wait_for(&url, "a[href*='/series/']", Some(std::time::Duration::from_secs(10)))?;
+        let html = browser.get_html_wait_for(
+            &url,
+            "a[href*='/series/']",
+            Some(std::time::Duration::from_secs(10)),
+        )?;
 
         let document = Html::parse_document(&html);
         let a_sel = Selector::parse("a").unwrap();
@@ -642,7 +719,11 @@ pub mod kagane_browser {
                     let final_title = if title.is_empty() {
                         let slug = href.trim_start_matches("/series/");
                         // Skip hash-like slugs (all uppercase alphanumeric, 20+ chars)
-                        if slug.len() > 20 && slug.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+                        if slug.len() > 20
+                            && slug
+                                .chars()
+                                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+                        {
                             continue; // Skip this result entirely
                         }
                         slug.replace(['-', '_'], " ")
@@ -650,9 +731,14 @@ pub mod kagane_browser {
                         title
                     };
 
-                    let cover_url = a.select(&Selector::parse("img").unwrap())
+                    let cover_url = a
+                        .select(&Selector::parse("img").unwrap())
                         .next()
-                        .and_then(|img| img.value().attr("src").or_else(|| img.value().attr("data-src")))
+                        .and_then(|img| {
+                            img.value()
+                                .attr("src")
+                                .or_else(|| img.value().attr("data-src"))
+                        })
                         .map(|s| s.to_string());
 
                     results.push((
@@ -679,11 +765,17 @@ pub mod kagane_browser {
         Ok(results)
     }
 
-    pub async fn get_chapters(series_url: &str) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
+    pub async fn get_chapters(
+        series_url: &str,
+    ) -> Result<Vec<Chapter>, Box<dyn std::error::Error>> {
         let browser = BrowserClient::new().await?;
 
         log::info!("Fetching chapters from {} using browser", series_url);
-        let html = browser.get_html_wait_for(series_url, "a[href*='/reader/']", Some(std::time::Duration::from_secs(10)))?;
+        let html = browser.get_html_wait_for(
+            series_url,
+            "a[href*='/reader/']",
+            Some(std::time::Duration::from_secs(10)),
+        )?;
 
         let document = Html::parse_document(&html);
         let a_sel = Selector::parse("a").unwrap();
@@ -692,7 +784,9 @@ pub mod kagane_browser {
 
         for a in document.select(&a_sel) {
             if let Some(href) = a.value().attr("href") {
-                if (href.contains("/reader/") || href.contains("/chapter/")) && seen.insert(href.to_string()) {
+                if (href.contains("/reader/") || href.contains("/chapter/"))
+                    && seen.insert(href.to_string())
+                {
                     let chapter_title = a.text().collect::<String>().trim().to_string();
                     let url = if href.starts_with("http") {
                         href.to_string()

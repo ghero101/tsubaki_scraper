@@ -1,6 +1,6 @@
+use crate::models::{Chapter, Manga};
 use reqwest::{Client, Url};
 use scraper::{Html, Selector};
-use crate::models::{Manga, Chapter};
 
 // Re-use the comprehensive cleaning function from wp_manga
 use crate::sources::wp_manga::clean_manga_title_public as clean_title;
@@ -52,19 +52,28 @@ pub async fn search_manga(client: &Client, title: &str) -> Result<Vec<Manga>, re
 }
 
 /// Returns (Manga, manga_url)
-pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+pub async fn search_manga_with_urls(
+    client: &Client,
+    title: &str,
+) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     // If title provided, use search; else crawl listing pages for robustness
     if !title.trim().is_empty() {
         let list = search_manga(client, title).await?;
         let mut out = Vec::new();
         for mut m in list {
-            let url = m.alt_titles.clone().unwrap_or_default().strip_prefix("::URL::").unwrap_or("").to_string();
+            let url = m
+                .alt_titles
+                .clone()
+                .unwrap_or_default()
+                .strip_prefix("::URL::")
+                .unwrap_or("")
+                .to_string();
             m.alt_titles = None;
             out.push((m, url));
         }
         return Ok(out);
     }
-// Listing crawl: try multiple listing paths and selectors
+    // Listing crawl: try multiple listing paths and selectors
     use std::collections::HashSet;
     let mut page = 1u32;
     let mut out = Vec::new();
@@ -86,7 +95,8 @@ pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<
             ];
             for sel in &selectors {
                 for element in document.select(sel) {
-                    let a_sel = Selector::parse("h3 > a, a.item-title, a.series-title, a\n").unwrap();
+                    let a_sel =
+                        Selector::parse("h3 > a, a.item-title, a.series-title, a\n").unwrap();
                     if let Some(a) = element.select(&a_sel).next() {
                         let title_raw = a.text().collect::<String>();
                         // Apply comprehensive title cleaning
@@ -95,29 +105,57 @@ pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<
                             None => continue, // Skip if filtering removes it
                         };
                         let series_url = a.value().attr("href").unwrap_or("").to_string();
-                        if series_url.is_empty() || seen.contains(&series_url) { continue; }
+                        if series_url.is_empty() || seen.contains(&series_url) {
+                            continue;
+                        }
                         let cover_url = element
                             .select(&Selector::parse("img").unwrap())
                             .next()
-                            .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
+                            .and_then(|e| {
+                                e.value().attr("src").or_else(|| e.value().attr("data-src"))
+                            })
                             .map(|s| s.to_string());
                         seen.insert(series_url.clone());
-                        out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                        out.push((
+                            Manga {
+                                id: String::new(),
+                                title,
+                                alt_titles: None,
+                                cover_url,
+                                description: None,
+                                tags: None,
+                                rating: None,
+                                monitored: None,
+                                check_interval_secs: None,
+                                discover_interval_secs: None,
+                                last_chapter_check: None,
+                                last_discover_check: None,
+                            },
+                            series_url,
+                        ));
                         items_in_page += 1;
                     }
                 }
-                if items_in_page > 0 { break; }
+                if items_in_page > 0 {
+                    break;
+                }
             }
-            if items_in_page > 0 { break; }
+            if items_in_page > 0 {
+                break;
+            }
         }
-        if items_in_page == 0 || page > 100 { break; }
+        if items_in_page == 0 || page > 100 {
+            break;
+        }
         page += 1;
     }
     Ok(out)
 }
 
 /// First-page only for quick checks
-pub async fn search_manga_first_page(client: &Client) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+pub async fn search_manga_first_page(
+    client: &Client,
+) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     use std::collections::HashSet;
     let mut out = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
@@ -140,7 +178,9 @@ pub async fn search_manga_first_page(client: &Client) -> Result<Vec<(Manga, Stri
                 let a_sel = Selector::parse("h3 > a, a.item-title, a.series-title, a").unwrap();
                 if let Some(a) = element.select(&a_sel).next() {
                     // Get title from title attribute or link text
-                    let title_raw = a.value().attr("title")
+                    let title_raw = a
+                        .value()
+                        .attr("title")
                         .map(|s| s.to_string())
                         .or_else(|| Some(a.text().collect::<String>()))
                         .unwrap_or_default();
@@ -151,26 +191,52 @@ pub async fn search_manga_first_page(client: &Client) -> Result<Vec<(Manga, Stri
                         None => continue, // Skip if filtering removes it
                     };
                     let series_url = a.value().attr("href").unwrap_or("").to_string();
-                    if title.is_empty() || series_url.is_empty() || seen.contains(&series_url) { continue; }
+                    if title.is_empty() || series_url.is_empty() || seen.contains(&series_url) {
+                        continue;
+                    }
                     let cover_url = element
                         .select(&Selector::parse("img").unwrap())
                         .next()
                         .and_then(|e| e.value().attr("src").or_else(|| e.value().attr("data-src")))
                         .map(|s| s.to_string());
                     seen.insert(series_url.clone());
-                    out.push((Manga { id: String::new(), title, alt_titles: None, cover_url, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                    out.push((
+                        Manga {
+                            id: String::new(),
+                            title,
+                            alt_titles: None,
+                            cover_url,
+                            description: None,
+                            tags: None,
+                            rating: None,
+                            monitored: None,
+                            check_interval_secs: None,
+                            discover_interval_secs: None,
+                            last_chapter_check: None,
+                            last_discover_check: None,
+                        },
+                        series_url,
+                    ));
                 }
             }
-            if !out.is_empty() { return Ok(out); }
+            if !out.is_empty() {
+                return Ok(out);
+            }
         }
     }
     Ok(out)
 }
 
-pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapter>, reqwest::Error> {
+pub async fn get_chapters(
+    client: &Client,
+    manga_url: &str,
+) -> Result<Vec<Chapter>, reqwest::Error> {
     let response = client
         .get(manga_url)
-        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+        .header(
+            "Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        )
         .header("Accept-Language", "en-US,en;q=0.9")
         .header("Referer", manga_url)
         .send()
@@ -193,12 +259,30 @@ pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapte
         if let Ok(selector) = Selector::parse(sel) {
             for a in document.select(&selector) {
                 let chapter_title = a.text().collect::<String>().trim().to_string();
-                if let Some(href) = a.value().attr("href").or_else(|| a.value().attr("data-href")) {
-                    let abs = if let Some(b) = &base { b.join(href).map(|u| u.to_string()).unwrap_or_else(|_| href.to_string()) } else { href.to_string() };
-                    chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: chapter_title.clone(), url: abs, scraped: false });
+                if let Some(href) = a
+                    .value()
+                    .attr("href")
+                    .or_else(|| a.value().attr("data-href"))
+                {
+                    let abs = if let Some(b) = &base {
+                        b.join(href)
+                            .map(|u| u.to_string())
+                            .unwrap_or_else(|_| href.to_string())
+                    } else {
+                        href.to_string()
+                    };
+                    chapters.push(Chapter {
+                        id: 0,
+                        manga_source_data_id: 0,
+                        chapter_number: chapter_title.clone(),
+                        url: abs,
+                        scraped: false,
+                    });
                 }
             }
-            if !chapters.is_empty() { break 'outer; }
+            if !chapters.is_empty() {
+                break 'outer;
+            }
         }
     }
 
@@ -207,7 +291,9 @@ pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapte
         let mut post_id: Option<String> = None;
         if let Ok(sel) = Selector::parse("div#manga-chapters-holder") {
             if let Some(div) = document.select(&sel).next() {
-                if let Some(did) = div.value().attr("data-id") { post_id = Some(did.to_string()); }
+                if let Some(did) = div.value().attr("data-id") {
+                    post_id = Some(did.to_string());
+                }
             }
         }
         if post_id.is_none() {
@@ -215,14 +301,18 @@ pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapte
             let re = regex::Regex::new(r"manga_id\s*=\s*(\d+)").unwrap();
             for s in document.select(&script_sel) {
                 let t = s.text().collect::<String>();
-                if let Some(cap) = re.captures(&t) { post_id = Some(cap[1].to_string()); break; }
+                if let Some(cap) = re.captures(&t) {
+                    post_id = Some(cap[1].to_string());
+                    break;
+                }
             }
         }
         if let Some(pid) = post_id {
             // derive origin from manga_url
-            let origin = Url::parse(manga_url).ok().and_then(|u| {
-                Some(format!("{}://{}", u.scheme(), u.host_str()?))
-            }).unwrap_or_else(|| BASE_URL.to_string());
+            let origin = Url::parse(manga_url)
+                .ok()
+                .and_then(|u| Some(format!("{}://{}", u.scheme(), u.host_str()?)))
+                .unwrap_or_else(|| BASE_URL.to_string());
             // Try admin-ajax
             let ajax = format!("{}/wp-admin/admin-ajax.php", origin);
             let resp = client
@@ -240,7 +330,13 @@ pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapte
                 for a in html.select(&a_sel) {
                     if let Some(href) = a.value().attr("href") {
                         let t = a.text().collect::<String>().trim().to_string();
-                        chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: t, url: href.to_string(), scraped: false });
+                        chapters.push(Chapter {
+                            id: 0,
+                            manga_source_data_id: 0,
+                            chapter_number: t,
+                            url: href.to_string(),
+                            scraped: false,
+                        });
                         found_any = true;
                     }
                 }
@@ -253,7 +349,11 @@ pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapte
                     format!("{}/ajax/chapters?id={}", origin, pid),
                 ];
                 for u in variants {
-                    let res = client.get(&u).header("X-Requested-With", "XMLHttpRequest").send().await;
+                    let res = client
+                        .get(&u)
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .send()
+                        .await;
                     if let Ok(ok) = res {
                         if ok.status().is_success() {
                             if let Ok(body) = ok.text().await {
@@ -263,11 +363,19 @@ pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapte
                                 for a in frag.select(&a_sel) {
                                     if let Some(href) = a.value().attr("href") {
                                         let t = a.text().collect::<String>().trim().to_string();
-                                        chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: t, url: href.to_string(), scraped: false });
+                                        chapters.push(Chapter {
+                                            id: 0,
+                                            manga_source_data_id: 0,
+                                            chapter_number: t,
+                                            url: href.to_string(),
+                                            scraped: false,
+                                        });
                                         got = true;
                                     }
                                 }
-                                if got { break; }
+                                if got {
+                                    break;
+                                }
                             }
                         }
                     }
@@ -281,19 +389,29 @@ pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapte
                     if let Some(href) = a.value().attr("href") {
                         if href.contains("/chapter/") || href.contains("/read/") {
                             let t = a.text().collect::<String>().trim().to_string();
-                            chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: t, url: href.to_string(), scraped: false });
+                            chapters.push(Chapter {
+                                id: 0,
+                                manga_source_data_id: 0,
+                                chapter_number: t,
+                                url: href.to_string(),
+                                scraped: false,
+                            });
                         }
                     }
                 }
             }
             // Try a couple of pagination pages
             for n in 2..=5u32 {
-                let urls = vec![format!("{}?page={}", manga_url, n), format!("{}/page/{}/", manga_url.trim_end_matches('/'), n)];
+                let urls = vec![
+                    format!("{}?page={}", manga_url, n),
+                    format!("{}/page/{}/", manga_url.trim_end_matches('/'), n),
+                ];
                 let mut any = false;
                 for u in urls {
-                    if let Ok(res) = client.get(&u).send().await { if let Ok(txt) = res.text().await {
-                        let doc = Html::parse_document(&txt);
-                        if let Ok(sel) = Selector::parse("a[href*='/chapter/'], li.wp-manga-chapter a, ul.main.version-chap li a") {
+                    if let Ok(res) = client.get(&u).send().await {
+                        if let Ok(txt) = res.text().await {
+                            let doc = Html::parse_document(&txt);
+                            if let Ok(sel) = Selector::parse("a[href*='/chapter/'], li.wp-manga-chapter a, ul.main.version-chap li a") {
                             for a in doc.select(&sel) {
                                 if let Some(href) = a.value().attr("href") {
                                     let t = a.text().collect::<String>().trim().to_string();
@@ -302,9 +420,12 @@ pub async fn get_chapters(client: &Client, manga_url: &str) -> Result<Vec<Chapte
                                 }
                             }
                         }
-                    }}
+                        }
+                    }
                 }
-                if !any { break; }
+                if !any {
+                    break;
+                }
             }
         }
     }

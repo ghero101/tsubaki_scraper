@@ -1,4 +1,4 @@
-pub mod mangabaka;
-pub mod mal;
-pub mod anilist;
 pub mod aggregate;
+pub mod anilist;
+pub mod mal;
+pub mod mangabaka;

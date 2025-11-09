@@ -1,8 +1,8 @@
 #![allow(dead_code)]
+use crate::models::{Chapter, Manga};
 /// VIZ Media - Shonen Jump & More
 /// Scrapes free chapters only (respects time-gated paywall)
 use reqwest::Client;
-use crate::models::{Manga, Chapter};
 use scraper::{Html, Selector};
 
 // Re-use the comprehensive cleaning function from wp_manga
@@ -52,20 +52,23 @@ pub async fn search_manga_with_urls(
                 };
 
                 if url.contains("/chapters/") {
-                    results.push((Manga {
-                        id: String::new(),
-                        title: title_text,
-                        alt_titles: None,
-                        cover_url: None,
-                        description: None,
-                        tags: None,
-                        rating: None,
-                        monitored: None,
-                        check_interval_secs: None,
-                        discover_interval_secs: None,
-                        last_chapter_check: None,
-                        last_discover_check: None,
-                    }, url));
+                    results.push((
+                        Manga {
+                            id: String::new(),
+                            title: title_text,
+                            alt_titles: None,
+                            cover_url: None,
+                            description: None,
+                            tags: None,
+                            rating: None,
+                            monitored: None,
+                            check_interval_secs: None,
+                            discover_interval_secs: None,
+                            last_chapter_check: None,
+                            last_discover_check: None,
+                        },
+                        url,
+                    ));
                 }
 
                 if results.len() >= 10 {

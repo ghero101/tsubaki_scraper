@@ -1,7 +1,7 @@
 #![allow(dead_code)]
+use crate::models::{Chapter, Manga};
 /// Kodansha Comics - Free sample chapters and volumes
 use reqwest::Client;
-use crate::models::{Manga, Chapter};
 use scraper::{Html, Selector};
 
 const BASE_URL: &str = "https://kodansha.us";
@@ -32,13 +32,23 @@ pub async fn search_manga_with_urls(
     for selector_str in selectors {
         if let Ok(selector) = Selector::parse(selector_str) {
             for element in document.select(&selector).take(10) {
-                let url = element.value().attr("href")
-                    .map(|h| if h.starts_with("http") { h.to_string() } else { format!("{}{}", BASE_URL, h) })
+                let url = element
+                    .value()
+                    .attr("href")
+                    .map(|h| {
+                        if h.starts_with("http") {
+                            h.to_string()
+                        } else {
+                            format!("{}{}", BASE_URL, h)
+                        }
+                    })
                     .unwrap_or_default();
 
                 let title_sel = Selector::parse("h2, h3, .title, .series-title").ok();
                 let title_text = if let Some(sel) = title_sel {
-                    element.select(&sel).next()
+                    element
+                        .select(&sel)
+                        .next()
                         .map(|e| e.text().collect::<String>().trim().to_string())
                         .unwrap_or_else(|| element.text().collect::<String>().trim().to_string())
                 } else {
@@ -46,20 +56,23 @@ pub async fn search_manga_with_urls(
                 };
 
                 if !url.is_empty() && !title_text.is_empty() && url.contains("/series/") {
-                    results.push((Manga {
-                        id: String::new(),
-                        title: title_text,
-                        alt_titles: None,
-                        cover_url: None,
-                        description: None,
-                        tags: None,
-                        rating: None,
-                        monitored: None,
-                        check_interval_secs: None,
-                        discover_interval_secs: None,
-                        last_chapter_check: None,
-                        last_discover_check: None,
-                    }, url));
+                    results.push((
+                        Manga {
+                            id: String::new(),
+                            title: title_text,
+                            alt_titles: None,
+                            cover_url: None,
+                            description: None,
+                            tags: None,
+                            rating: None,
+                            monitored: None,
+                            check_interval_secs: None,
+                            discover_interval_secs: None,
+                            last_chapter_check: None,
+                            last_discover_check: None,
+                        },
+                        url,
+                    ));
                 }
             }
 
@@ -82,7 +95,9 @@ pub async fn get_chapters(
     let mut chapters = Vec::new();
 
     // Look for volume/chapter links (free samples or preview chapters)
-    if let Ok(selector) = Selector::parse("a[href*='/volume/'], a[href*='/chapter/'], div.volume-item a, div.chapter-item a") {
+    if let Ok(selector) = Selector::parse(
+        "a[href*='/volume/'], a[href*='/chapter/'], div.volume-item a, div.chapter-item a",
+    ) {
         for (idx, element) in document.select(&selector).enumerate() {
             if let Some(href) = element.value().attr("href") {
                 let url = if href.starts_with("http") {

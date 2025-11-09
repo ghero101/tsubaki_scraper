@@ -12,7 +12,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Testing MangaDex API...");
 
     // Test the actual function
-    match rust_manga_scraper::sources::mangadex::search_all_manga(&client, rust_manga_scraper::sources::mangadex::BASE_URL).await {
+    match rust_manga_scraper::sources::mangadex::search_all_manga(
+        &client,
+        rust_manga_scraper::sources::mangadex::BASE_URL,
+    )
+    .await
+    {
         Ok(manga) => {
             println!("✓ MangaDex returned {} manga", manga.len());
             if !manga.is_empty() {

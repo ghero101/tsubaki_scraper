@@ -1,13 +1,12 @@
 /// Chapter download validation test
 /// Tests downloading 1 chapter from each source
 /// This validates that the actual scraping and downloading works end-to-end
-
 use reqwest::Client;
-use rust_manga_scraper::models::{Manga, Chapter, Source};
+use rust_manga_scraper::models::{Chapter, Manga, Source};
 use rust_manga_scraper::scraper::download_chapter;
-use serde::{Serialize, Deserialize};
-use std::time::{Duration, Instant};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct DownloadTestResult {
@@ -67,10 +66,17 @@ macro_rules! test_download {
                     };
 
                     for (manga, series_url) in results.iter().take(5) {
-                        if found { break; }
+                        if found {
+                            break;
+                        }
 
                         // Get chapters for this manga
-                        match rust_manga_scraper::sources::$source_mod::get_chapters(&client, &series_url).await {
+                        match rust_manga_scraper::sources::$source_mod::get_chapters(
+                            &client,
+                            &series_url,
+                        )
+                        .await
+                        {
                             Ok(chapters) => {
                                 if !chapters.is_empty() {
                                     // Try to download the first chapter
@@ -90,7 +96,9 @@ macro_rules! test_download {
                                         chapter_number,
                                         test_dir,
                                         None,
-                                    ).await {
+                                    )
+                                    .await
+                                    {
                                         Ok(file_path) => {
                                             let file_size_kb = std::fs::metadata(&file_path)
                                                 .ok()
@@ -161,28 +169,56 @@ async fn test_all_chapter_downloads() {
     results.push(test_download_mangadex().await);
 
     println!("Testing FireScans download...");
-    results.push(test_download!(firescans, "FireScans", Source::FireScans as i32));
+    results.push(test_download!(
+        firescans,
+        "FireScans",
+        Source::FireScans as i32
+    ));
 
     println!("Testing ResetScans download...");
-    results.push(test_download!(reset_scans, "ResetScans", Source::ResetScans as i32));
+    results.push(test_download!(
+        reset_scans,
+        "ResetScans",
+        Source::ResetScans as i32
+    ));
 
     println!("Testing RizzComic download...");
-    results.push(test_download!(rizzcomic, "RizzComic", Source::RizzComic as i32));
+    results.push(test_download!(
+        rizzcomic,
+        "RizzComic",
+        Source::RizzComic as i32
+    ));
 
     println!("Testing Asmotoon download...");
-    results.push(test_download!(asmotoon, "Asmotoon", Source::Asmotoon as i32));
+    results.push(test_download!(
+        asmotoon,
+        "Asmotoon",
+        Source::Asmotoon as i32
+    ));
 
     println!("Testing DrakeComic download...");
-    results.push(test_download!(drakecomic, "DrakeComic", Source::DrakeComic as i32));
+    results.push(test_download!(
+        drakecomic,
+        "DrakeComic",
+        Source::DrakeComic as i32
+    ));
 
     println!("Testing Kagane download...");
     results.push(test_download!(kagane, "Kagane", Source::Kagane as i32));
 
     println!("Testing TempleScan download...");
-    results.push(test_download!(temple_scan, "TempleScan", Source::TempleScan as i32));
+    results.push(test_download!(
+        temple_scan,
+        "TempleScan",
+        Source::TempleScan as i32
+    ));
 
     println!("Testing ThunderScans download...");
-    results.push(test_download!(thunderscans, "ThunderScans", Source::ThunderScans as i32));
+    results.push(test_download!(
+        thunderscans,
+        "ThunderScans",
+        Source::ThunderScans as i32
+    ));
 
     // Clean up test directory
     std::fs::remove_dir_all("test_downloads").ok();
@@ -214,10 +250,17 @@ async fn test_all_chapter_downloads() {
     println!("\n╔════════════════════════════════════════════════════════════╗");
     println!("║                DOWNLOAD TEST RESULTS                       ║");
     println!("╠════════════════════════════════════════════════════════════╣");
-    println!("║  ✅ Successful Downloads: {:2}/{:2} ({:3.0}%)                   ║",
-        successful, total, (successful as f32 / total as f32) * 100.0);
-    println!("║  ❌ Failed Downloads:     {:2}/{:2}                            ║",
-        total - successful, total);
+    println!(
+        "║  ✅ Successful Downloads: {:2}/{:2} ({:3.0}%)                   ║",
+        successful,
+        total,
+        (successful as f32 / total as f32) * 100.0
+    );
+    println!(
+        "║  ❌ Failed Downloads:     {:2}/{:2}                            ║",
+        total - successful,
+        total
+    );
     println!("╚════════════════════════════════════════════════════════════╝\n");
 }
 
@@ -230,7 +273,12 @@ async fn test_download_mangadex() -> DownloadTestResult {
 
     let start = Instant::now();
 
-    match rust_manga_scraper::sources::mangadex::search_all_manga(&client, rust_manga_scraper::sources::mangadex::BASE_URL).await {
+    match rust_manga_scraper::sources::mangadex::search_all_manga(
+        &client,
+        rust_manga_scraper::sources::mangadex::BASE_URL,
+    )
+    .await
+    {
         Ok(results) => {
             if results.is_empty() {
                 return DownloadTestResult {
@@ -246,7 +294,8 @@ async fn test_download_mangadex() -> DownloadTestResult {
 
             // Try first few manga
             for manga in results.iter().take(5) {
-                match rust_manga_scraper::sources::mangadex::get_chapters(&client, &manga.id).await {
+                match rust_manga_scraper::sources::mangadex::get_chapters(&client, &manga.id).await
+                {
                     Ok(chapters) => {
                         if !chapters.is_empty() {
                             let chapter = &chapters[0];
@@ -265,11 +314,12 @@ async fn test_download_mangadex() -> DownloadTestResult {
                                 chapter_number,
                                 test_dir,
                                 None,
-                            ).await {
+                            )
+                            .await
+                            {
                                 Ok(file_path) => {
-                                    let file_size_kb = std::fs::metadata(&file_path)
-                                        .ok()
-                                        .map(|m| m.len() / 1024);
+                                    let file_size_kb =
+                                        std::fs::metadata(&file_path).ok().map(|m| m.len() / 1024);
 
                                     std::fs::remove_file(&file_path).ok();
 
@@ -334,11 +384,16 @@ fn print_download_summary(results: &[DownloadTestResult]) {
             "   N/A  ".to_string()
         };
 
-        println!("║ {:<17} ║ {}{:<15} ║ {:<28} ║ {} ║ {:>10} ║",
+        println!(
+            "║ {:<17} ║ {}{:<15} ║ {:<28} ║ {} ║ {:>10} ║",
             truncate(&result.source_name, 17),
             status_symbol,
             truncate(&result.status, 14),
-            if result.manga_title.is_empty() { "-".to_string() } else { truncate(&result.manga_title, 28) },
+            if result.manga_title.is_empty() {
+                "-".to_string()
+            } else {
+                truncate(&result.manga_title, 28)
+            },
             size_str,
             result.duration_ms
         );

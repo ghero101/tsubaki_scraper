@@ -12,7 +12,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Testing StoneScape...\n");
 
     // Get manga
-    let manga_list = rust_manga_scraper::sources::stonescape::search_manga_with_urls(&client, "").await?;
+    let manga_list =
+        rust_manga_scraper::sources::stonescape::search_manga_with_urls(&client, "").await?;
     println!("✓ Found {} manga", manga_list.len());
 
     if let Some((manga, url)) = manga_list.first() {

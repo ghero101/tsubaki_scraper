@@ -1,7 +1,7 @@
 #![allow(dead_code)]
+use crate::models::{Chapter, Manga};
 /// Dark Horse Comics - Free digital previews
 use reqwest::Client;
-use crate::models::{Manga, Chapter};
 use scraper::{Html, Selector};
 
 const BASE_URL: &str = "https://www.darkhorse.com";
@@ -22,16 +22,28 @@ pub async fn search_manga_with_urls(
     let mut results = Vec::new();
 
     // Parse from the carousel/list structure
-    if let Ok(selector) = Selector::parse("#iscroll_n01_iscroll_list a, div.comic-item a, div.series-item a") {
+    if let Ok(selector) =
+        Selector::parse("#iscroll_n01_iscroll_list a, div.comic-item a, div.series-item a")
+    {
         for element in document.select(&selector).take(10) {
-            let url = element.value().attr("href")
-                .map(|h| if h.starts_with("http") { h.to_string() } else { format!("{}{}", BASE_URL, h) })
+            let url = element
+                .value()
+                .attr("href")
+                .map(|h| {
+                    if h.starts_with("http") {
+                        h.to_string()
+                    } else {
+                        format!("{}{}", BASE_URL, h)
+                    }
+                })
                 .unwrap_or_default();
 
             // Get title from h2 within the link
             let title_sel = Selector::parse("h2").ok();
             let title_text = if let Some(sel) = title_sel {
-                element.select(&sel).next()
+                element
+                    .select(&sel)
+                    .next()
                     .map(|e| e.text().collect::<String>().trim().to_string())
                     .unwrap_or_else(|| element.text().collect::<String>().trim().to_string())
             } else {
@@ -39,20 +51,23 @@ pub async fn search_manga_with_urls(
             };
 
             if !url.is_empty() && !title_text.is_empty() {
-                results.push((Manga {
-                    id: String::new(),
-                    title: title_text,
-                    alt_titles: None,
-                    cover_url: None,
-                    description: None,
-                    tags: None,
-                    rating: None,
-                    monitored: None,
-                    check_interval_secs: None,
-                    discover_interval_secs: None,
-                    last_chapter_check: None,
-                    last_discover_check: None,
-                }, url));
+                results.push((
+                    Manga {
+                        id: String::new(),
+                        title: title_text,
+                        alt_titles: None,
+                        cover_url: None,
+                        description: None,
+                        tags: None,
+                        rating: None,
+                        monitored: None,
+                        check_interval_secs: None,
+                        discover_interval_secs: None,
+                        last_chapter_check: None,
+                        last_discover_check: None,
+                    },
+                    url,
+                ));
             }
         }
     }
@@ -70,7 +85,9 @@ pub async fn get_chapters(
     let mut chapters = Vec::new();
 
     // Look for issue links or preview chapters
-    if let Ok(selector) = Selector::parse("a[href*='/issue/'], a[href*='/Issues/'], div.issue-item a") {
+    if let Ok(selector) =
+        Selector::parse("a[href*='/issue/'], a[href*='/Issues/'], div.issue-item a")
+    {
         for element in document.select(&selector) {
             if let Some(href) = element.value().attr("href") {
                 let url = if href.starts_with("http") {

@@ -1,8 +1,8 @@
-use crate::{db, models::Source};
+use crate::{app_state::AppState, db, models::Source};
 use actix_web::web;
 use chrono::Utc;
 
-pub fn spawn(data: web::Data<crate::AppState>) {
+pub fn spawn(data: web::Data<AppState>) {
     let data_clone = data.clone();
     actix_web::rt::spawn(async move {
         loop {
