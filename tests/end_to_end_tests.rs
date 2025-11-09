@@ -1,20 +1,25 @@
 /// End-to-end integration tests
 /// Tests the complete workflow from configuration to scraping
-
 use rust_manga_scraper::config::Config;
-use rust_manga_scraper::metrics::MetricsTracker;
 use rust_manga_scraper::http_client::EnhancedHttpClient;
+use rust_manga_scraper::metrics::MetricsTracker;
 use std::time::Duration;
 
 #[tokio::test]
 async fn test_complete_workflow_http_client() {
     // 1. Load configuration
     let config = Config::load();
-    assert!(!config.download_dir.is_empty(), "Config should have download dir");
+    assert!(
+        !config.download_dir.is_empty(),
+        "Config should have download dir"
+    );
 
     // 2. Create HTTP client from config
     let client_result = config.bot_detection.create_http_client();
-    assert!(client_result.is_ok(), "Should create HTTP client from config");
+    assert!(
+        client_result.is_ok(),
+        "Should create HTTP client from config"
+    );
     let client = client_result.unwrap();
 
     // 3. Create metrics tracker
@@ -39,22 +44,32 @@ async fn test_complete_workflow_http_client() {
 
     // 5. Verify metrics were recorded
     if let Some(source_metrics) = metrics.get_metrics("test_source") {
-        assert!(source_metrics.total_requests > 0, "Should have recorded requests");
-        println!("✓ Metrics recorded: {} requests", source_metrics.total_requests);
+        assert!(
+            source_metrics.total_requests > 0,
+            "Should have recorded requests"
+        );
+        println!(
+            "✓ Metrics recorded: {} requests",
+            source_metrics.total_requests
+        );
     }
 }
 
 #[tokio::test]
 async fn test_retry_mechanism() {
     let config = Config::load();
-    let client = config.bot_detection.create_http_client()
+    let client = config
+        .bot_detection
+        .create_http_client()
         .expect("Failed to create client");
 
     let metrics = MetricsTracker::new();
 
     // Test with an endpoint that returns 503 (should retry)
     let start = std::time::Instant::now();
-    let result = client.get_with_retry("https://httpbin.org/status/503").await;
+    let result = client
+        .get_with_retry("https://httpbin.org/status/503")
+        .await;
     let elapsed = start.elapsed();
 
     // Should have retried (takes at least initial_retry_delay_ms)
@@ -80,14 +95,26 @@ async fn test_configuration_variations() {
     // Test with different timeout values
     let config = Config::load();
 
-    assert!(config.bot_detection.timeout_secs > 0, "Timeout should be positive");
-    assert!(config.bot_detection.max_retries > 0, "Max retries should be positive");
-    assert!(config.bot_detection.initial_retry_delay_ms > 0, "Retry delay should be positive");
+    assert!(
+        config.bot_detection.timeout_secs > 0,
+        "Timeout should be positive"
+    );
+    assert!(
+        config.bot_detection.max_retries > 0,
+        "Max retries should be positive"
+    );
+    assert!(
+        config.bot_detection.initial_retry_delay_ms > 0,
+        "Retry delay should be positive"
+    );
 
     println!("✓ Configuration validation passed");
     println!("  Timeout: {}s", config.bot_detection.timeout_secs);
     println!("  Max retries: {}", config.bot_detection.max_retries);
-    println!("  Initial delay: {}ms", config.bot_detection.initial_retry_delay_ms);
+    println!(
+        "  Initial delay: {}ms",
+        config.bot_detection.initial_retry_delay_ms
+    );
 }
 
 #[tokio::test]
@@ -106,9 +133,16 @@ async fn test_metrics_aggregation() {
     let source_metrics = metrics.get_metrics("test_source").unwrap();
 
     assert_eq!(source_metrics.total_requests, 5, "Should have 5 requests");
-    assert_eq!(source_metrics.successful_requests, 3, "Should have 3 successes");
+    assert_eq!(
+        source_metrics.successful_requests, 3,
+        "Should have 3 successes"
+    );
     assert_eq!(source_metrics.failed_requests, 2, "Should have 2 failures");
-    assert_eq!(source_metrics.success_rate(), 60.0, "Success rate should be 60%");
+    assert_eq!(
+        source_metrics.success_rate(),
+        60.0,
+        "Success rate should be 60%"
+    );
 
     println!("✓ Metrics aggregation working");
     println!("  Total: {}", source_metrics.total_requests);
@@ -122,13 +156,22 @@ async fn test_metrics_error_categorization() {
     // Simulate different types of errors
     metrics.record_failure("source1", "429 Too Many Requests".to_string());
     metrics.record_failure("source1", "Rate limit exceeded".to_string());
-    metrics.record_failure("source1", "503 Service Unavailable - Cloudflare".to_string());
+    metrics.record_failure(
+        "source1",
+        "503 Service Unavailable - Cloudflare".to_string(),
+    );
     metrics.record_failure("source1", "Request timeout after 30s".to_string());
 
     let source_metrics = metrics.get_metrics("source1").unwrap();
 
-    assert_eq!(source_metrics.rate_limit_hits, 2, "Should detect 2 rate limit errors");
-    assert_eq!(source_metrics.cloudflare_challenges, 1, "Should detect 1 Cloudflare error");
+    assert_eq!(
+        source_metrics.rate_limit_hits, 2,
+        "Should detect 2 rate limit errors"
+    );
+    assert_eq!(
+        source_metrics.cloudflare_challenges, 1,
+        "Should detect 1 Cloudflare error"
+    );
     assert_eq!(source_metrics.timeout_count, 1, "Should detect 1 timeout");
 
     println!("✓ Error categorization working");
@@ -167,7 +210,9 @@ async fn test_cookie_persistence() {
     let client = EnhancedHttpClient::new().expect("Failed to create client");
 
     // httpbin.org/cookies/set sets a cookie and redirects
-    let result = client.get_with_retry("https://httpbin.org/cookies/set?test=value").await;
+    let result = client
+        .get_with_retry("https://httpbin.org/cookies/set?test=value")
+        .await;
 
     match result {
         Ok(response) => {
@@ -229,7 +274,10 @@ async fn test_fallback_strategy() {
 
     // HTTP client should always work
     let http_result = config.bot_detection.create_http_client();
-    assert!(http_result.is_ok(), "HTTP client should always be available");
+    assert!(
+        http_result.is_ok(),
+        "HTTP client should always be available"
+    );
 
     // Browser may or may not be available
     let browser_result = config.bot_detection.create_browser_client();
@@ -253,7 +301,10 @@ async fn test_metrics_json_export() {
 
     assert!(!json.is_empty(), "JSON export should not be empty");
     assert!(json.contains("test_source"), "Should contain source name");
-    assert!(json.contains("total_requests"), "Should contain metrics data");
+    assert!(
+        json.contains("total_requests"),
+        "Should contain metrics data"
+    );
 
     println!("✓ Metrics JSON export working");
     println!("  Export length: {} bytes", json.len());

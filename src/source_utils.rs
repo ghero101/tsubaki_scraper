@@ -1,5 +1,5 @@
-use crate::http_client::EnhancedHttpClient;
 use crate::browser_client::BrowserClient;
+use crate::http_client::EnhancedHttpClient;
 use reqwest::Client;
 
 /// Source fetch strategy
@@ -50,10 +50,7 @@ impl SourceFetcher {
     }
 
     /// Fetch HTML with automatic strategy detection based on URL/domain
-    pub async fn fetch_html_auto(
-        &self,
-        url: &str,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn fetch_html_auto(&self, url: &str) -> Result<String, Box<dyn std::error::Error>> {
         let strategy = self.detect_strategy(url);
         self.fetch_html(url, strategy).await
     }
@@ -70,11 +67,7 @@ impl SourceFetcher {
         ];
 
         // Domains known to have Cloudflare protection
-        let cloudflare_protected = [
-            "drakecomic.com",
-            "madarascans.com",
-            "rizzfables.com",
-        ];
+        let cloudflare_protected = ["drakecomic.com", "madarascans.com", "rizzfables.com"];
 
         for domain in &browser_required {
             if url.contains(domain) {
@@ -133,17 +126,13 @@ pub async fn fetch_html_with_retry(
 }
 
 /// Helper function to fetch HTML using browser (for easy migration)
-pub async fn fetch_html_with_browser(
-    url: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn fetch_html_with_browser(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let browser = BrowserClient::new().await?;
     browser.get_html(url)
 }
 
 /// Helper function to fetch HTML with Cloudflare bypass
-pub async fn fetch_html_cloudflare_bypass(
-    url: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn fetch_html_cloudflare_bypass(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let browser = BrowserClient::new().await?;
     browser.navigate_with_cloudflare_bypass(url)
 }

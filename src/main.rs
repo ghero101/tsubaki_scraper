@@ -1,129 +1,48 @@
+mod app_state;
+mod browser;
+mod cloudflare_bypass;
 mod config;
+mod crawler;
 mod db;
+mod helpers;
+mod metadata;
+mod metrics;
 mod models;
 mod scheduler;
 mod scraper;
 mod sources;
-mod crawler;
-mod metadata;
-mod metrics;
-mod browser;
-mod cloudflare_bypass;
 
 // Public modules for testing and external use
-pub mod http_client;
 pub mod browser_client;
+pub mod http_client;
 pub mod source_utils;
 pub mod sources_browser;
 use crate::sources::{
-    asmotoon, drakecomic, firescans, kagane, kdtnovels, mangadex, reset_scans, rizzcomic, temple_scan, thunderscans,
+    asmotoon, drakecomic, firescans, kagane, kdtnovels, mangadex, reset_scans, rizzcomic,
+    temple_scan, thunderscans,
 };
 // mod mal;
 // mod anilist;
 
+use crate::app_state::{AppState, MetadataProgress};
+use crate::helpers::{
+    build_comicinfo, extract_number, find_best_chapter_match, guess_source_id_from_url,
+    merge_alt_titles, normalize_chapter_str, normalize_title, parse_source,
+    wp_manga_source_by_name, xml_escape,
+};
 use crate::models::{
     ChapterWithSource, Manga, MangaSourceData, MangaWithSources, PaginatedResponse, PaginationInfo,
     Source, SourceInfo, Stats,
 };
-use serde::Serialize;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use log::{error, info};
+use regex::Regex;
 use reqwest::Client;
 use rusqlite::Connection;
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use uuid::Uuid;
-use regex::Regex;
-
-fn parse_source(s: &str) -> Option<Source> {
-    let k = s.to_lowercase();
-    if let Ok(n) = k.parse::<i32>() {
-        return match n {
-            1 => Some(Source::MangaDex),
-            2 => Some(Source::FireScans),
-            3 => Some(Source::RizzComic),
-            4 => Some(Source::MyAnimeList),
-            5 => Some(Source::AniList),
-            6 => Some(Source::DrakeComic),
-            7 => Some(Source::KDTNovels),
-            8 => Some(Source::Asmotoon),
-            9 => Some(Source::ResetScans),
-            10 => Some(Source::Kagane),
-            _ => None,
-        };
-    }
-    match k.as_str() {
-        "mangadex" => Some(Source::MangaDex),
-        "firescans" => Some(Source::FireScans),
-        "rizzcomic" => Some(Source::RizzComic),
-        "myanimelist" | "mal" => Some(Source::MyAnimeList),
-        "anilist" => Some(Source::AniList),
-        "drakecomic" => Some(Source::DrakeComic),
-        "kdtnovels" | "kdt" => Some(Source::KDTNovels),
-        "asmotoon" => Some(Source::Asmotoon),
-        "resetscans" | "reset-scans" => Some(Source::ResetScans),
-        "kagane" => Some(Source::Kagane),
-        "temple-scan" | "templescan" | "templetoons" => Some(Source::TempleScan),
-        "thunderscans" | "thunder-scans" => Some(Source::ThunderScans),
-        _ => None,
-    }
-}
-
-fn wp_manga_source_by_name(name: &str) -> Option<(i32, &'static str)> {
-    match name {
-        "asurascans" => Some((11, "https://asurascans.com")),
-        "kenscans" => Some((25, "https://kenscans.com")),
-        "sirenscans" | "siren-scans" => Some((43, "https://sirenscans.com")),
-        "vortexscans" | "vortex-scans" => Some((56, "https://vortexscans.com")),
-        "witchscans" | "witch-scans" => Some((59, "https://witchscans.com")),
-        "qiscans" | "qi-scans" => Some((38, "https://qiscans.org")),
-        "madarascans" => Some((30, "https://madarascans.com")),
-        "rizzfables" => Some((39, "https://rizzfables.com")),
-        "rokaricomics" | "rokari-comics" => Some((40, "https://rokaricomics.com")),
-        "stonescape" => Some((45, "https://stonescape.xyz")),
-        "manhuaus" => Some((31, "https://manhuaus.com")),
-        "grimscans" => Some((19, "https://grimscans.team")),
-        "hivetoons" => Some((20, "https://hivetoons.com")),
-        "nyxscans" => Some((34, "https://nyxscans.com")),
-        _ => None,
-    }
-}
-
-// Helper function to normalize manga titles for consistent HashMap keys
-fn normalize_title(title: &str) -> String {
-    title.to_lowercase().replace(" ", "").replace("-", "")
-}
-
-// Helper function to merge alt_titles with deduplication
-fn merge_alt_titles(existing: &mut Option<String>, new_titles: &str) {
-    let mut title_set: HashSet<String> = HashSet::new();
-
-    // Add existing titles to set
-    if let Some(existing_titles) = existing {
-        for title in existing_titles.split(", ") {
-            if !title.trim().is_empty() {
-                title_set.insert(title.trim().to_string());
-            }
-        }
-    }
-
-    // Add new titles to set
-    for title in new_titles.split(", ") {
-        if !title.trim().is_empty() {
-            title_set.insert(title.trim().to_string());
-        }
-    }
-
-    // Convert set back to comma-separated string
-    let mut titles: Vec<String> = title_set.into_iter().collect();
-    titles.sort();
-    *existing = if titles.is_empty() {
-        None
-    } else {
-        Some(titles.join(", "))
-    };
-}
-
-use log::{error, info};
 
 #[get("/import")]
 async fn import(data: web::Data<AppState>) -> impl Responder {
@@ -592,7 +511,11 @@ async fn import_source_endpoint(
 ) -> impl Responder {
     // Try enum sources first, then generic WP-Manga mapping
     let src_opt = parse_source(&source);
-    let wp_opt = if src_opt.is_none() { wp_manga_source_by_name(&source.to_lowercase()) } else { None };
+    let wp_opt = if src_opt.is_none() {
+        wp_manga_source_by_name(&source.to_lowercase())
+    } else {
+        None
+    };
     if src_opt.is_none() && wp_opt.is_none() {
         return HttpResponse::BadRequest().json(serde_json::json!({"error":"unknown source"}));
     }
@@ -602,7 +525,11 @@ async fn import_source_endpoint(
     let mut manga_map: HashMap<String, Manga> = HashMap::new();
     let mut manga_source_data_map: HashMap<String, Vec<MangaSourceData>> = HashMap::new();
 
-    let add_entry = |manga_map: &mut HashMap<String, Manga>, msd_map: &mut HashMap<String, Vec<MangaSourceData>>, m: Manga, source_id: i32, series_url_or_id: String| {
+    let add_entry = |manga_map: &mut HashMap<String, Manga>,
+                     msd_map: &mut HashMap<String, Vec<MangaSourceData>>,
+                     m: Manga,
+                     source_id: i32,
+                     series_url_or_id: String| {
         let normalized_title = normalize_title(&m.title);
         let current_manga = manga_map
             .entry(normalized_title.clone())
@@ -624,131 +551,453 @@ async fn import_source_endpoint(
     };
 
     if let Some(src) = src_opt {
-    match src {
-        Source::MangaDex => {
-            match mangadex::search_manga(client, "", mangadex::BASE_URL).await {
-                Ok(list) => for m in list { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::MangaDex as i32, String::new()); },
-                Err(e) => { error!("MangaDex import error: {}", e); return HttpResponse::InternalServerError().finish(); }
+        match src {
+            Source::MangaDex => {
+                match mangadex::search_manga(client, "", mangadex::BASE_URL).await {
+                    Ok(list) => {
+                        for m in list {
+                            add_entry(
+                                &mut manga_map,
+                                &mut manga_source_data_map,
+                                m,
+                                Source::MangaDex as i32,
+                                String::new(),
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        error!("MangaDex import error: {}", e);
+                        return HttpResponse::InternalServerError().finish();
+                    }
+                }
+            }
+            Source::FireScans => match firescans::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::FireScans as i32,
+                            u,
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("FireScans import error: {}", e);
+                    return HttpResponse::InternalServerError().finish();
+                }
+            },
+            Source::RizzComic => match rizzcomic::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::RizzComic as i32,
+                            u,
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("RizzComic import error: {}", e);
+                    return HttpResponse::InternalServerError().finish();
+                }
+            },
+            Source::DrakeComic => match drakecomic::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::DrakeComic as i32,
+                            u,
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("DrakeComic import error: {}", e);
+                    return HttpResponse::InternalServerError().finish();
+                }
+            },
+            Source::Asmotoon => match asmotoon::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::Asmotoon as i32,
+                            u,
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("Asmotoon import error: {}", e);
+                    return HttpResponse::InternalServerError().finish();
+                }
+            },
+            Source::ResetScans => match reset_scans::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::ResetScans as i32,
+                            u,
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("ResetScans import error: {}", e);
+                    return HttpResponse::InternalServerError().finish();
+                }
+            },
+            Source::Kagane => match kagane::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::Kagane as i32,
+                            u,
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("Kagane import error: {}", e);
+                    return HttpResponse::InternalServerError().finish();
+                }
+            },
+            Source::TempleScan => match temple_scan::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::TempleScan as i32,
+                            u,
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("TempleScan import error: {}", e);
+                    return HttpResponse::InternalServerError().finish();
+                }
+            },
+            Source::ThunderScans => match thunderscans::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::ThunderScans as i32,
+                            u,
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("ThunderScans import error: {}", e);
+                    return HttpResponse::InternalServerError().finish();
+                }
+            },
+            Source::KDTNovels | Source::MyAnimeList | Source::AniList => {
+                return HttpResponse::BadRequest()
+                    .json(serde_json::json!({"error":"metadata-only source not supported here"}))
             }
         }
-        Source::FireScans => {
-            match firescans::search_manga_with_urls(client, "").await {
-                Ok(items) => for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::FireScans as i32, u); },
-                Err(e) => { error!("FireScans import error: {}", e); return HttpResponse::InternalServerError().finish(); }
-            }
-        }
-        Source::RizzComic => {
-            match rizzcomic::search_manga_with_urls(client, "").await {
-                Ok(items) => for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::RizzComic as i32, u); },
-                Err(e) => { error!("RizzComic import error: {}", e); return HttpResponse::InternalServerError().finish(); }
-            }
-        }
-        Source::DrakeComic => {
-            match drakecomic::search_manga_with_urls(client, "").await {
-                Ok(items) => for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::DrakeComic as i32, u); },
-                Err(e) => { error!("DrakeComic import error: {}", e); return HttpResponse::InternalServerError().finish(); }
-            }
-        }
-        Source::Asmotoon => {
-            match asmotoon::search_manga_with_urls(client, "").await {
-                Ok(items) => for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::Asmotoon as i32, u); },
-                Err(e) => { error!("Asmotoon import error: {}", e); return HttpResponse::InternalServerError().finish(); }
-            }
-        }
-        Source::ResetScans => {
-            match reset_scans::search_manga_with_urls(client, "").await {
-                Ok(items) => for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::ResetScans as i32, u); },
-                Err(e) => { error!("ResetScans import error: {}", e); return HttpResponse::InternalServerError().finish(); }
-            }
-        }
-        Source::Kagane => {
-            match kagane::search_manga_with_urls(client, "").await {
-                Ok(items) => for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::Kagane as i32, u); },
-                Err(e) => { error!("Kagane import error: {}", e); return HttpResponse::InternalServerError().finish(); }
-            }
-        }
-        Source::TempleScan => {
-            match temple_scan::search_manga_with_urls(client, "").await {
-                Ok(items) => for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::TempleScan as i32, u); },
-                Err(e) => { error!("TempleScan import error: {}", e); return HttpResponse::InternalServerError().finish(); }
-            }
-        }
-        Source::ThunderScans => {
-            match thunderscans::search_manga_with_urls(client, "").await {
-                Ok(items) => for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::ThunderScans as i32, u); },
-                Err(e) => { error!("ThunderScans import error: {}", e); return HttpResponse::InternalServerError().finish(); }
-            }
-        }
-        Source::KDTNovels | Source::MyAnimeList | Source::AniList => {
-            return HttpResponse::BadRequest().json(serde_json::json!({"error":"metadata-only source not supported here"}))
-        }
-    }
-} else if let Some((sid, base)) = wp_opt {
+    } else if let Some((sid, base)) = wp_opt {
         let s = source.to_lowercase();
         let res = match s.as_str() {
-            "asurascans" => crate::sources::asurascans::search_manga_with_urls(client, "").await.map(|items| (11, items)),
-            "kenscans" => crate::sources::kenscans::search_manga_with_urls(client, "").await.map(|items| (25, items)),
-            "sirenscans" | "siren-scans" => crate::sources::sirenscans::search_manga_with_urls(client, "").await.map(|items| (43, items)),
-            "vortexscans" | "vortex-scans" => crate::sources::vortexscans::search_manga_with_urls(client, "").await.map(|items| (56, items)),
-            "witchscans" | "witch-scans" => crate::sources::witchscans::search_manga_with_urls(client, "").await.map(|items| (59, items)),
-            "qiscans" | "qi-scans" => crate::sources::qiscans::search_manga_with_urls(client, "").await.map(|items| (38, items)),
-            "madarascans" => crate::sources::madarascans::search_manga_with_urls(client, "").await.map(|items| (30, items)),
-            "rizzfables" => crate::sources::rizzfables::search_manga_with_urls(client, "").await.map(|items| (39, items)),
-            "rokaricomics" | "rokari-comics" => crate::sources::rokaricomics::search_manga_with_urls(client, "").await.map(|items| (40, items)),
-            "stonescape" => crate::sources::stonescape::search_manga_with_urls(client, "").await.map(|items| (45, items)),
-            "manhuaus" => crate::sources::manhuaus::search_manga_with_urls(client, "").await.map(|items| (31, items)),
-            "grimscans" => crate::sources::grimscans::search_manga_with_urls(client, "").await.map(|items| (19, items)),
-            "hivetoons" => crate::sources::hivetoons::search_manga_with_urls(client, "").await.map(|items| (20, items)),
-            "nyxscans" => crate::sources::nyxscans::search_manga_with_urls(client, "").await.map(|items| (34, items)),
-            _ => crate::sources::wp_manga::search_manga_with_urls_base(client, base).await.map(|items| (sid, items)),
+            "asurascans" => crate::sources::asurascans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (11, items)),
+            "kenscans" => crate::sources::kenscans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (25, items)),
+            "sirenscans" | "siren-scans" => {
+                crate::sources::sirenscans::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (43, items))
+            }
+            "vortexscans" | "vortex-scans" => {
+                crate::sources::vortexscans::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (56, items))
+            }
+            "witchscans" | "witch-scans" => {
+                crate::sources::witchscans::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (59, items))
+            }
+            "qiscans" | "qi-scans" => crate::sources::qiscans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (38, items)),
+            "madarascans" => crate::sources::madarascans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (30, items)),
+            "rizzfables" => crate::sources::rizzfables::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (39, items)),
+            "rokaricomics" | "rokari-comics" => {
+                crate::sources::rokaricomics::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (40, items))
+            }
+            "stonescape" => crate::sources::stonescape::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (45, items)),
+            "manhuaus" => crate::sources::manhuaus::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (31, items)),
+            "grimscans" => crate::sources::grimscans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (19, items)),
+            "hivetoons" => crate::sources::hivetoons::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (20, items)),
+            "nyxscans" => crate::sources::nyxscans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (34, items)),
+            _ => crate::sources::wp_manga::search_manga_with_urls_base(client, base)
+                .await
+                .map(|items| (sid, items)),
         };
         match res {
-            Ok((resolved_sid, items)) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, resolved_sid, u); } },
-            Err(e) => { error!("wp import error {}: {}", s, e); return HttpResponse::InternalServerError().finish(); }
+            Ok((resolved_sid, items)) => {
+                for (m, u) in items {
+                    add_entry(
+                        &mut manga_map,
+                        &mut manga_source_data_map,
+                        m,
+                        resolved_sid,
+                        u,
+                    );
+                }
+            }
+            Err(e) => {
+                error!("wp import error {}: {}", s, e);
+                return HttpResponse::InternalServerError().finish();
+            }
         }
     }
 
-    let tx = match conn.transaction() { Ok(t)=>t, Err(e)=>{ error!("tx error: {}", e); return HttpResponse::InternalServerError().finish(); } };
+    let tx = match conn.transaction() {
+        Ok(t) => t,
+        Err(e) => {
+            error!("tx error: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
 
     // Insert
     for (key, m) in manga_map.iter() {
-        if let Err(e) = db::insert_manga(&tx, m) { error!("insert manga {}: {}", m.title, e); }
+        if let Err(e) = db::insert_manga(&tx, m) {
+            error!("insert manga {}: {}", m.title, e);
+        }
         if let Some(msds) = manga_source_data_map.get(key) {
             for msd in msds {
-                let msd_id = match db::insert_manga_source_data(&tx, msd) { Ok(id)=>id, Err(e)=>{ error!("insert msd: {}", e); continue } };
+                let msd_id = match db::insert_manga_source_data(&tx, msd) {
+                    Ok(id) => id,
+                    Err(e) => {
+                        error!("insert msd: {}", e);
+                        continue;
+                    }
+                };
                 let chapters: Vec<crate::models::Chapter> = match msd.source_id {
-                    x if x == Source::MangaDex as i32 => match mangadex::get_chapters(client, &m.id).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    x if x == Source::FireScans as i32 => match firescans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    x if x == Source::RizzComic as i32 => match rizzcomic::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    x if x == Source::DrakeComic as i32 => match drakecomic::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    x if x == Source::Asmotoon as i32 => match asmotoon::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    x if x == Source::ResetScans as i32 => match reset_scans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    x if x == Source::Kagane as i32 => match kagane::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    x if x == Source::TempleScan as i32 => match temple_scan::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    x if x == Source::ThunderScans as i32 => match thunderscans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    11 => match crate::sources::asurascans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    25 => match crate::sources::kenscans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    43 => match crate::sources::sirenscans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    56 => match crate::sources::vortexscans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    59 => match crate::sources::witchscans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    38 => match crate::sources::qiscans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    30 => match crate::sources::madarascans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    39 => match crate::sources::rizzfables::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    40 => match crate::sources::rokaricomics::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    45 => match crate::sources::stonescape::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    31 => match crate::sources::manhuaus::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    19 => match crate::sources::grimscans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    20 => match crate::sources::hivetoons::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
-                    34 => match crate::sources::nyxscans::get_chapters(client, &msd.source_manga_url).await { Ok(c)=>c, Err(_)=>Vec::new() },
+                    x if x == Source::MangaDex as i32 => {
+                        match mangadex::get_chapters(client, &m.id).await {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    x if x == Source::FireScans as i32 => {
+                        match firescans::get_chapters(client, &msd.source_manga_url).await {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    x if x == Source::RizzComic as i32 => {
+                        match rizzcomic::get_chapters(client, &msd.source_manga_url).await {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    x if x == Source::DrakeComic as i32 => {
+                        match drakecomic::get_chapters(client, &msd.source_manga_url).await {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    x if x == Source::Asmotoon as i32 => {
+                        match asmotoon::get_chapters(client, &msd.source_manga_url).await {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    x if x == Source::ResetScans as i32 => {
+                        match reset_scans::get_chapters(client, &msd.source_manga_url).await {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    x if x == Source::Kagane as i32 => {
+                        match kagane::get_chapters(client, &msd.source_manga_url).await {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    x if x == Source::TempleScan as i32 => {
+                        match temple_scan::get_chapters(client, &msd.source_manga_url).await {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    x if x == Source::ThunderScans as i32 => {
+                        match thunderscans::get_chapters(client, &msd.source_manga_url).await {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    11 => match crate::sources::asurascans::get_chapters(
+                        client,
+                        &msd.source_manga_url,
+                    )
+                    .await
+                    {
+                        Ok(c) => c,
+                        Err(_) => Vec::new(),
+                    },
+                    25 => {
+                        match crate::sources::kenscans::get_chapters(client, &msd.source_manga_url)
+                            .await
+                        {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    43 => match crate::sources::sirenscans::get_chapters(
+                        client,
+                        &msd.source_manga_url,
+                    )
+                    .await
+                    {
+                        Ok(c) => c,
+                        Err(_) => Vec::new(),
+                    },
+                    56 => match crate::sources::vortexscans::get_chapters(
+                        client,
+                        &msd.source_manga_url,
+                    )
+                    .await
+                    {
+                        Ok(c) => c,
+                        Err(_) => Vec::new(),
+                    },
+                    59 => match crate::sources::witchscans::get_chapters(
+                        client,
+                        &msd.source_manga_url,
+                    )
+                    .await
+                    {
+                        Ok(c) => c,
+                        Err(_) => Vec::new(),
+                    },
+                    38 => {
+                        match crate::sources::qiscans::get_chapters(client, &msd.source_manga_url)
+                            .await
+                        {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    30 => match crate::sources::madarascans::get_chapters(
+                        client,
+                        &msd.source_manga_url,
+                    )
+                    .await
+                    {
+                        Ok(c) => c,
+                        Err(_) => Vec::new(),
+                    },
+                    39 => match crate::sources::rizzfables::get_chapters(
+                        client,
+                        &msd.source_manga_url,
+                    )
+                    .await
+                    {
+                        Ok(c) => c,
+                        Err(_) => Vec::new(),
+                    },
+                    40 => match crate::sources::rokaricomics::get_chapters(
+                        client,
+                        &msd.source_manga_url,
+                    )
+                    .await
+                    {
+                        Ok(c) => c,
+                        Err(_) => Vec::new(),
+                    },
+                    45 => match crate::sources::stonescape::get_chapters(
+                        client,
+                        &msd.source_manga_url,
+                    )
+                    .await
+                    {
+                        Ok(c) => c,
+                        Err(_) => Vec::new(),
+                    },
+                    31 => {
+                        match crate::sources::manhuaus::get_chapters(client, &msd.source_manga_url)
+                            .await
+                        {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    19 => {
+                        match crate::sources::grimscans::get_chapters(client, &msd.source_manga_url)
+                            .await
+                        {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    20 => {
+                        match crate::sources::hivetoons::get_chapters(client, &msd.source_manga_url)
+                            .await
+                        {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
+                    34 => {
+                        match crate::sources::nyxscans::get_chapters(client, &msd.source_manga_url)
+                            .await
+                        {
+                            Ok(c) => c,
+                            Err(_) => Vec::new(),
+                        }
+                    }
                     _ => Vec::new(),
                 };
                 let _ = db::insert_chapters(&tx, msd_id, &chapters);
             }
         }
     }
-    if let Err(e) = tx.commit() { error!("commit error: {}", e); return HttpResponse::InternalServerError().finish(); }
+    if let Err(e) = tx.commit() {
+        error!("commit error: {}", e);
+        return HttpResponse::InternalServerError().finish();
+    }
 
-    HttpResponse::Ok().json(serde_json::json!({"source": source.to_string(), "manga": manga_map.len()}))
+    HttpResponse::Ok()
+        .json(serde_json::json!({"source": source.to_string(), "manga": manga_map.len()}))
 }
 
 #[get("/import/source/{source}/manga")]
@@ -757,7 +1006,11 @@ async fn import_source_manga_only(
     source: web::Path<String>,
 ) -> impl Responder {
     let src_opt = parse_source(&source);
-    let wp_opt = if src_opt.is_none() { wp_manga_source_by_name(&source.to_lowercase()) } else { None };
+    let wp_opt = if src_opt.is_none() {
+        wp_manga_source_by_name(&source.to_lowercase())
+    } else {
+        None
+    };
     if src_opt.is_none() && wp_opt.is_none() {
         return HttpResponse::BadRequest().json(serde_json::json!({"error":"unknown source"}));
     }
@@ -767,7 +1020,11 @@ async fn import_source_manga_only(
     let mut manga_map: HashMap<String, Manga> = HashMap::new();
     let mut manga_source_data_map: HashMap<String, Vec<MangaSourceData>> = HashMap::new();
 
-    let add_entry = |manga_map: &mut HashMap<String, Manga>, msd_map: &mut HashMap<String, Vec<MangaSourceData>>, m: Manga, source_id: i32, series_url_or_id: String| {
+    let add_entry = |manga_map: &mut HashMap<String, Manga>,
+                     msd_map: &mut HashMap<String, Vec<MangaSourceData>>,
+                     m: Manga,
+                     source_id: i32,
+                     series_url_or_id: String| {
         let normalized_title = normalize_title(&m.title);
         let current_manga = manga_map
             .entry(normalized_title.clone())
@@ -793,83 +1050,251 @@ async fn import_source_manga_only(
         HttpResponse::InternalServerError().finish()
     };
 
-    let res: Result<(), HttpResponse> = if let Some(src) = src_opt { match src {
-        Source::MangaDex => match mangadex::search_manga(client, "", mangadex::BASE_URL).await {
-            Ok(list) => { for m in list { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::MangaDex as i32, String::new()); } Ok(()) },
-            Err(e) => return scrape_err("MangaDex", &e),
-        },
-        Source::FireScans => match firescans::search_manga_with_urls(client, "").await {
-            Ok(items) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::FireScans as i32, u); } Ok(()) },
-            Err(e) => return scrape_err("FireScans", &e),
-        },
-        Source::RizzComic => match rizzcomic::search_manga_with_urls(client, "").await {
-            Ok(items) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::RizzComic as i32, u); } Ok(()) },
-            Err(e) => return scrape_err("RizzComic", &e),
-        },
-        Source::DrakeComic => match drakecomic::search_manga_with_urls(client, "").await {
-            Ok(items) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::DrakeComic as i32, u); } Ok(()) },
-            Err(e) => return scrape_err("DrakeComic", &e),
-        },
-        Source::Asmotoon => match asmotoon::search_manga_with_urls(client, "").await {
-            Ok(items) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::Asmotoon as i32, u); } Ok(()) },
-            Err(e) => return scrape_err("Asmotoon", &e),
-        },
-        Source::ResetScans => match reset_scans::search_manga_with_urls(client, "").await {
-            Ok(items) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::ResetScans as i32, u); } Ok(()) },
-            Err(e) => return scrape_err("ResetScans", &e),
-        },
-        Source::Kagane => match kagane::search_manga_with_urls(client, "").await {
-            Ok(items) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::Kagane as i32, u); } Ok(()) },
-            Err(e) => return scrape_err("Kagane", &e),
-        },
-        Source::TempleScan => match temple_scan::search_manga_with_urls(client, "").await {
-            Ok(items) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::TempleScan as i32, u); } Ok(()) },
-            Err(e) => return scrape_err("TempleScan", &e),
-        },
-        Source::ThunderScans => match thunderscans::search_manga_with_urls(client, "").await {
-            Ok(items) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, Source::ThunderScans as i32, u); } Ok(()) },
-            Err(e) => return scrape_err("ThunderScans", &e),
-        },
-        Source::KDTNovels | Source::MyAnimeList | Source::AniList => return HttpResponse::BadRequest().json(serde_json::json!({"error":"metadata-only source not supported here"})),
-    }
-    }
-    else {
+    let res: Result<(), HttpResponse> = if let Some(src) = src_opt {
+        match src {
+            Source::MangaDex => {
+                match mangadex::search_manga(client, "", mangadex::BASE_URL).await {
+                    Ok(list) => {
+                        for m in list {
+                            add_entry(
+                                &mut manga_map,
+                                &mut manga_source_data_map,
+                                m,
+                                Source::MangaDex as i32,
+                                String::new(),
+                            );
+                        }
+                        Ok(())
+                    }
+                    Err(e) => return scrape_err("MangaDex", &e),
+                }
+            }
+            Source::FireScans => match firescans::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::FireScans as i32,
+                            u,
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => return scrape_err("FireScans", &e),
+            },
+            Source::RizzComic => match rizzcomic::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::RizzComic as i32,
+                            u,
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => return scrape_err("RizzComic", &e),
+            },
+            Source::DrakeComic => match drakecomic::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::DrakeComic as i32,
+                            u,
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => return scrape_err("DrakeComic", &e),
+            },
+            Source::Asmotoon => match asmotoon::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::Asmotoon as i32,
+                            u,
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => return scrape_err("Asmotoon", &e),
+            },
+            Source::ResetScans => match reset_scans::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::ResetScans as i32,
+                            u,
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => return scrape_err("ResetScans", &e),
+            },
+            Source::Kagane => match kagane::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::Kagane as i32,
+                            u,
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => return scrape_err("Kagane", &e),
+            },
+            Source::TempleScan => match temple_scan::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::TempleScan as i32,
+                            u,
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => return scrape_err("TempleScan", &e),
+            },
+            Source::ThunderScans => match thunderscans::search_manga_with_urls(client, "").await {
+                Ok(items) => {
+                    for (m, u) in items {
+                        add_entry(
+                            &mut manga_map,
+                            &mut manga_source_data_map,
+                            m,
+                            Source::ThunderScans as i32,
+                            u,
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => return scrape_err("ThunderScans", &e),
+            },
+            Source::KDTNovels | Source::MyAnimeList | Source::AniList => {
+                return HttpResponse::BadRequest()
+                    .json(serde_json::json!({"error":"metadata-only source not supported here"}))
+            }
+        }
+    } else {
         let (sid, base) = wp_opt.unwrap();
         let s = source.to_lowercase();
         let res = match s.as_str() {
-            "asurascans" => crate::sources::asurascans::search_manga_with_urls(client, "").await.map(|items| (11, items)),
-            "kenscans" => crate::sources::kenscans::search_manga_with_urls(client, "").await.map(|items| (25, items)),
-            "sirenscans" | "siren-scans" => crate::sources::sirenscans::search_manga_with_urls(client, "").await.map(|items| (43, items)),
-            "vortexscans" | "vortex-scans" => crate::sources::vortexscans::search_manga_with_urls(client, "").await.map(|items| (56, items)),
-            "witchscans" | "witch-scans" => crate::sources::witchscans::search_manga_with_urls(client, "").await.map(|items| (59, items)),
-            "qiscans" | "qi-scans" => crate::sources::qiscans::search_manga_with_urls(client, "").await.map(|items| (38, items)),
-            "madarascans" => crate::sources::madarascans::search_manga_with_urls(client, "").await.map(|items| (30, items)),
-            "rizzfables" => crate::sources::rizzfables::search_manga_with_urls(client, "").await.map(|items| (39, items)),
-            "rokaricomics" | "rokari-comics" => crate::sources::rokaricomics::search_manga_with_urls(client, "").await.map(|items| (40, items)),
-            "stonescape" => crate::sources::stonescape::search_manga_with_urls(client, "").await.map(|items| (45, items)),
-            "manhuaus" => crate::sources::manhuaus::search_manga_with_urls(client, "").await.map(|items| (31, items)),
-            "grimscans" => crate::sources::grimscans::search_manga_with_urls(client, "").await.map(|items| (19, items)),
-            "hivetoons" => crate::sources::hivetoons::search_manga_with_urls(client, "").await.map(|items| (20, items)),
-            "nyxscans" => crate::sources::nyxscans::search_manga_with_urls(client, "").await.map(|items| (34, items)),
-            _ => crate::sources::wp_manga::search_manga_with_urls_base(client, base).await.map(|items| (sid, items)),
+            "asurascans" => crate::sources::asurascans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (11, items)),
+            "kenscans" => crate::sources::kenscans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (25, items)),
+            "sirenscans" | "siren-scans" => {
+                crate::sources::sirenscans::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (43, items))
+            }
+            "vortexscans" | "vortex-scans" => {
+                crate::sources::vortexscans::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (56, items))
+            }
+            "witchscans" | "witch-scans" => {
+                crate::sources::witchscans::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (59, items))
+            }
+            "qiscans" | "qi-scans" => crate::sources::qiscans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (38, items)),
+            "madarascans" => crate::sources::madarascans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (30, items)),
+            "rizzfables" => crate::sources::rizzfables::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (39, items)),
+            "rokaricomics" | "rokari-comics" => {
+                crate::sources::rokaricomics::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (40, items))
+            }
+            "stonescape" => crate::sources::stonescape::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (45, items)),
+            "manhuaus" => crate::sources::manhuaus::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (31, items)),
+            "grimscans" => crate::sources::grimscans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (19, items)),
+            "hivetoons" => crate::sources::hivetoons::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (20, items)),
+            "nyxscans" => crate::sources::nyxscans::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (34, items)),
+            _ => crate::sources::wp_manga::search_manga_with_urls_base(client, base)
+                .await
+                .map(|items| (sid, items)),
         };
         match res {
-            Ok((resolved_sid, items)) => { for (m,u) in items { add_entry(&mut manga_map, &mut manga_source_data_map, m, resolved_sid, u); } Ok(()) },
+            Ok((resolved_sid, items)) => {
+                for (m, u) in items {
+                    add_entry(
+                        &mut manga_map,
+                        &mut manga_source_data_map,
+                        m,
+                        resolved_sid,
+                        u,
+                    );
+                }
+                Ok(())
+            }
             Err(e) => return scrape_err(&s, &e),
         }
     };
-    if res.is_err() { return res.unwrap_err(); }
+    if res.is_err() {
+        return res.unwrap_err();
+    }
 
-    let tx = match conn.transaction() { Ok(t)=>t, Err(e)=>{ error!("tx error: {}", e); return HttpResponse::InternalServerError().finish(); } };
+    let tx = match conn.transaction() {
+        Ok(t) => t,
+        Err(e) => {
+            error!("tx error: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
     for (key, m) in manga_map.iter() {
         let _ = db::insert_manga(&tx, m);
         if let Some(msds) = manga_source_data_map.get(key) {
-            for msd in msds { let _ = db::insert_manga_source_data(&tx, msd); }
+            for msd in msds {
+                let _ = db::insert_manga_source_data(&tx, msd);
+            }
         }
     }
-    if let Err(e) = tx.commit() { error!("commit error: {}", e); return HttpResponse::InternalServerError().finish(); }
+    if let Err(e) = tx.commit() {
+        error!("commit error: {}", e);
+        return HttpResponse::InternalServerError().finish();
+    }
 
-    HttpResponse::Ok().json(serde_json::json!({"source": source.to_string(), "manga": manga_map.len(), "chapters": 0}))
+    HttpResponse::Ok().json(
+        serde_json::json!({"source": source.to_string(), "manga": manga_map.len(), "chapters": 0}),
+    )
 }
 #[get("/manga")]
 async fn list_manga(
@@ -1144,8 +1569,22 @@ async fn download(
                     Ok(Some(m)) => m,
                     _ => return HttpResponse::InternalServerError().finish(),
                 };
-                if let Some(cu) = &manga.cover_url { let _ = scraper::ensure_cover_downloaded(&data.client, &data.config.download_dir, &manga.title, cu, source_data.source_id).await; }
-                let comicinfo = build_comicinfo(&manga.title, &chapter.chapter_number, manga.description.as_deref(), manga.tags.as_deref());
+                if let Some(cu) = &manga.cover_url {
+                    let _ = scraper::ensure_cover_downloaded(
+                        &data.client,
+                        &data.config.download_dir,
+                        &manga.title,
+                        cu,
+                        source_data.source_id,
+                    )
+                    .await;
+                }
+                let comicinfo = build_comicinfo(
+                    &manga.title,
+                    &chapter.chapter_number,
+                    manga.description.as_deref(),
+                    manga.tags.as_deref(),
+                );
                 match scraper::download_chapter(&data.client, source_data.source_id, &chapter.url, &manga.title, &chapter.chapter_number, &data.config.download_dir, comicinfo.as_deref()).await {
                     Ok(file_path) => return HttpResponse::Ok().json(serde_json::json!({"message": "Downloaded successfully", "file": file_path})),
                     Err(e) => {
@@ -1163,59 +1602,110 @@ async fn download(
     }
 }
 
-fn guess_source_id_from_url(u: &str) -> Option<i32> {
-    let lu = u.to_lowercase();
-    if lu.contains("mangadex.org") { return Some(Source::MangaDex as i32); }
-    if lu.contains("firescans") { return Some(Source::FireScans as i32); }
-    if lu.contains("rizzcomic") { return Some(Source::RizzComic as i32); }
-    if lu.contains("drakecomic") { return Some(Source::DrakeComic as i32); }
-    if lu.contains("asmotoon") { return Some(Source::Asmotoon as i32); }
-    if lu.contains("reset-scans") || lu.contains("resetscans") { return Some(Source::ResetScans as i32); }
-    if lu.contains("kagane.org") { return Some(Source::Kagane as i32); }
-    None
-}
-
 #[get("/download/byurl")]
 async fn download_by_url(
     data: web::Data<AppState>,
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> impl Responder {
-    let manga_id = match query.get("manga_id") { Some(v)=>v, None=>return HttpResponse::BadRequest().json(serde_json::json!({"error":"manga_id is required"})) };
-    let url = match query.get("url") { Some(v)=>v, None=>return HttpResponse::BadRequest().json(serde_json::json!({"error":"url is required"})) };
-    let stream = query.get("stream").map(|s| s=="true").unwrap_or(false);
-    let req_source_id = query.get("source_id").and_then(|s| s.parse::<i32>().ok()).or_else(|| guess_source_id_from_url(url));
+    let manga_id = match query.get("manga_id") {
+        Some(v) => v,
+        None => {
+            return HttpResponse::BadRequest()
+                .json(serde_json::json!({"error":"manga_id is required"}))
+        }
+    };
+    let url = match query.get("url") {
+        Some(v) => v,
+        None => {
+            return HttpResponse::BadRequest().json(serde_json::json!({"error":"url is required"}))
+        }
+    };
+    let stream = query.get("stream").map(|s| s == "true").unwrap_or(false);
+    let req_source_id = query
+        .get("source_id")
+        .and_then(|s| s.parse::<i32>().ok())
+        .or_else(|| guess_source_id_from_url(url));
 
     let conn = data.db.lock().unwrap();
     let source_data_list = match db::get_manga_source_data_by_manga_id(&conn, manga_id) {
         Ok(list) => list,
-        Err(_) => return HttpResponse::InternalServerError().json(serde_json::json!({"error":"Database error"})),
+        Err(_) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({"error":"Database error"}))
+        }
     };
     let (chosen_source_id, _has_msd) = if let Some(sid) = req_source_id {
         // Prefer requested/guessed source id, even if no msd exists for this manga
-        if source_data_list.iter().any(|s| s.source_id == sid) { (sid, true) } else { (sid, false) }
-    } else if source_data_list.len() == 1 { (source_data_list[0].source_id, true) } else { (0, false) };
+        if source_data_list.iter().any(|s| s.source_id == sid) {
+            (sid, true)
+        } else {
+            (sid, false)
+        }
+    } else if source_data_list.len() == 1 {
+        (source_data_list[0].source_id, true)
+    } else {
+        (0, false)
+    };
     if chosen_source_id == 0 {
-        return HttpResponse::BadRequest().json(serde_json::json!({"error":"source could not be determined; specify source_id"}));
+        return HttpResponse::BadRequest().json(
+            serde_json::json!({"error":"source could not be determined; specify source_id"}),
+        );
     }
 
     if stream {
         match scraper::download_chapter_to_memory(&data.client, chosen_source_id, url).await {
             Ok(bytes) => HttpResponse::Ok()
                 .content_type("application/x-cbz")
-                .insert_header(("Content-Disposition", format!("attachment; filename=\"{} - byurl.cbz\"", manga_id)))
+                .insert_header((
+                    "Content-Disposition",
+                    format!("attachment; filename=\"{} - byurl.cbz\"", manga_id),
+                ))
                 .body(bytes),
             Err(e) => {
                 error!("Failed to download chapter by url: {}", e);
-                HttpResponse::InternalServerError().json(serde_json::json!({"error":"Download failed"}))
+                HttpResponse::InternalServerError()
+                    .json(serde_json::json!({"error":"Download failed"}))
             }
         }
     } else {
-        let manga = match db::get_manga_by_id(&conn, manga_id) { Ok(Some(m))=>m, _=>return HttpResponse::InternalServerError().finish() };
-        if let Some(cu) = &manga.cover_url { let _ = scraper::ensure_cover_downloaded(&data.client, &data.config.download_dir, &manga.title, cu, chosen_source_id).await; }
-        let comicinfo = build_comicinfo(&manga.title, "byurl", manga.description.as_deref(), manga.tags.as_deref());
-        match scraper::download_chapter(&data.client, chosen_source_id, url, &manga.title, "byurl", &data.config.download_dir, comicinfo.as_deref()).await {
-            Ok(file_path) => HttpResponse::Ok().json(serde_json::json!({"message":"Downloaded successfully","file": file_path})),
-            Err(e) => { error!("Failed to download chapter by url: {}", e); HttpResponse::InternalServerError().json(serde_json::json!({"error":"Download failed"})) }
+        let manga = match db::get_manga_by_id(&conn, manga_id) {
+            Ok(Some(m)) => m,
+            _ => return HttpResponse::InternalServerError().finish(),
+        };
+        if let Some(cu) = &manga.cover_url {
+            let _ = scraper::ensure_cover_downloaded(
+                &data.client,
+                &data.config.download_dir,
+                &manga.title,
+                cu,
+                chosen_source_id,
+            )
+            .await;
+        }
+        let comicinfo = build_comicinfo(
+            &manga.title,
+            "byurl",
+            manga.description.as_deref(),
+            manga.tags.as_deref(),
+        );
+        match scraper::download_chapter(
+            &data.client,
+            chosen_source_id,
+            url,
+            &manga.title,
+            "byurl",
+            &data.config.download_dir,
+            comicinfo.as_deref(),
+        )
+        .await
+        {
+            Ok(file_path) => HttpResponse::Ok()
+                .json(serde_json::json!({"message":"Downloaded successfully","file": file_path})),
+            Err(e) => {
+                error!("Failed to download chapter by url: {}", e);
+                HttpResponse::InternalServerError()
+                    .json(serde_json::json!({"error":"Download failed"}))
+            }
         }
     }
 }
@@ -1226,9 +1716,8 @@ async fn get_sources(data: web::Data<AppState>) -> impl Responder {
 
     match db::get_per_source_counts(&conn) {
         Ok(sources) => {
-            let sources_with_chapters: Vec<_> = sources.into_iter()
-                .filter(|s| s.chapters > 0)
-                .collect();
+            let sources_with_chapters: Vec<_> =
+                sources.into_iter().filter(|s| s.chapters > 0).collect();
             HttpResponse::Ok().json(sources_with_chapters)
         }
         Err(e) => {
@@ -1240,10 +1729,7 @@ async fn get_sources(data: web::Data<AppState>) -> impl Responder {
 }
 
 #[get("/sources/{source_id}/manga")]
-async fn get_source_manga(
-    data: web::Data<AppState>,
-    source_id: web::Path<i32>,
-) -> impl Responder {
+async fn get_source_manga(data: web::Data<AppState>, source_id: web::Path<i32>) -> impl Responder {
     let conn = data.db.lock().unwrap();
     let source_id = source_id.into_inner();
 
@@ -1308,23 +1794,26 @@ async fn get_stats(data: web::Data<AppState>) -> impl Responder {
 async fn get_metrics(data: web::Data<AppState>) -> impl Responder {
     let all_metrics = data.metrics.get_all_metrics();
 
-    let metrics_json: Vec<serde_json::Value> = all_metrics.iter().map(|m| {
-        serde_json::json!({
-            "source_name": m.source_name,
-            "success_rate": format!("{:.2}%", m.success_rate()),
-            "total_requests": m.total_requests,
-            "successful_requests": m.successful_requests,
-            "failed_requests": m.failed_requests,
-            "average_response_time_ms": format!("{:.2}", m.average_response_time_ms),
-            "retry_count": m.retry_count,
-            "rate_limit_hits": m.rate_limit_hits,
-            "cloudflare_challenges": m.cloudflare_challenges,
-            "timeout_count": m.timeout_count,
-            "last_success": m.last_success,
-            "last_failure": m.last_failure,
-            "last_error": m.last_error,
+    let metrics_json: Vec<serde_json::Value> = all_metrics
+        .iter()
+        .map(|m| {
+            serde_json::json!({
+                "source_name": m.source_name,
+                "success_rate": format!("{:.2}%", m.success_rate()),
+                "total_requests": m.total_requests,
+                "successful_requests": m.successful_requests,
+                "failed_requests": m.failed_requests,
+                "average_response_time_ms": format!("{:.2}", m.average_response_time_ms),
+                "retry_count": m.retry_count,
+                "rate_limit_hits": m.rate_limit_hits,
+                "cloudflare_challenges": m.cloudflare_challenges,
+                "timeout_count": m.timeout_count,
+                "last_success": m.last_success,
+                "last_failure": m.last_failure,
+                "last_error": m.last_error,
+            })
         })
-    }).collect();
+        .collect();
 
     HttpResponse::Ok().json(serde_json::json!({
         "metrics": metrics_json,
@@ -1342,9 +1831,7 @@ async fn get_metrics_summary(data: web::Data<AppState>) -> impl Responder {
     writeln!(&mut summary, "\n=== Source Performance Summary ===\n").unwrap();
 
     let mut sorted_metrics = all_metrics.clone();
-    sorted_metrics.sort_by(|a, b| {
-        b.success_rate().partial_cmp(&a.success_rate()).unwrap()
-    });
+    sorted_metrics.sort_by(|a, b| b.success_rate().partial_cmp(&a.success_rate()).unwrap());
 
     for m in sorted_metrics {
         writeln!(&mut summary, "Source: {}", m.source_name).unwrap();
@@ -1352,10 +1839,20 @@ async fn get_metrics_summary(data: web::Data<AppState>) -> impl Responder {
         writeln!(&mut summary, "  Total Requests: {}", m.total_requests).unwrap();
         writeln!(&mut summary, "  Successful: {}", m.successful_requests).unwrap();
         writeln!(&mut summary, "  Failed: {}", m.failed_requests).unwrap();
-        writeln!(&mut summary, "  Avg Response Time: {:.2}ms", m.average_response_time_ms).unwrap();
+        writeln!(
+            &mut summary,
+            "  Avg Response Time: {:.2}ms",
+            m.average_response_time_ms
+        )
+        .unwrap();
         writeln!(&mut summary, "  Retries: {}", m.retry_count).unwrap();
         writeln!(&mut summary, "  Rate Limit Hits: {}", m.rate_limit_hits).unwrap();
-        writeln!(&mut summary, "  Cloudflare Challenges: {}", m.cloudflare_challenges).unwrap();
+        writeln!(
+            &mut summary,
+            "  Cloudflare Challenges: {}",
+            m.cloudflare_challenges
+        )
+        .unwrap();
         writeln!(&mut summary, "  Timeouts: {}", m.timeout_count).unwrap();
         if let Some(ref last_error) = m.last_error {
             writeln!(&mut summary, "  Last Error: {}", last_error).unwrap();
@@ -1363,9 +1860,7 @@ async fn get_metrics_summary(data: web::Data<AppState>) -> impl Responder {
         writeln!(&mut summary).unwrap();
     }
 
-    HttpResponse::Ok()
-        .content_type("text/plain")
-        .body(summary)
+    HttpResponse::Ok().content_type("text/plain").body(summary)
 }
 
 #[get("/download/{manga_id}/{chapter_number}/{source_id}")]
@@ -1439,8 +1934,22 @@ async fn download_from_source(
                     Ok(Some(m)) => m,
                     _ => return HttpResponse::InternalServerError().finish(),
                 };
-                if let Some(cu) = &manga.cover_url { let _ = scraper::ensure_cover_downloaded(&data.client, &data.config.download_dir, &manga.title, cu, source_data.source_id).await; }
-                let comicinfo = build_comicinfo(&manga.title, &chapter.chapter_number, manga.description.as_deref(), manga.tags.as_deref());
+                if let Some(cu) = &manga.cover_url {
+                    let _ = scraper::ensure_cover_downloaded(
+                        &data.client,
+                        &data.config.download_dir,
+                        &manga.title,
+                        cu,
+                        source_data.source_id,
+                    )
+                    .await;
+                }
+                let comicinfo = build_comicinfo(
+                    &manga.title,
+                    &chapter.chapter_number,
+                    manga.description.as_deref(),
+                    manga.tags.as_deref(),
+                );
                 match scraper::download_chapter(&data.client, source_data.source_id, &chapter.url, &manga.title, &chapter.chapter_number, &data.config.download_dir, comicinfo.as_deref()).await {
                     Ok(file_path) => HttpResponse::Ok().json(serde_json::json!({"message": "Downloaded successfully", "file": file_path})),
                     Err(e) => {
@@ -1455,81 +1964,6 @@ async fn download_from_source(
     } else {
         HttpResponse::NotFound().json(serde_json::json!({"error": "Source not found"}))
     }
-}
-
-fn xml_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-     .replace('<', "&lt;")
-     .replace('>', "&gt;")
-     .replace('"', "&quot;")
-     .replace('\'', "&apos;")
-}
-
-fn build_comicinfo(series: &str, number: &str, summary: Option<&str>, tags: Option<&str>) -> Option<String> {
-    let mut xml = String::from("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<ComicInfo>\n");
-    xml.push_str(&format!("  <Series>{}</Series>\n", xml_escape(series)));
-    xml.push_str(&format!("  <Number>{}</Number>\n", xml_escape(number)));
-    if let Some(s) = summary { if !s.trim().is_empty() { xml.push_str(&format!("  <Summary>{}</Summary>\n", xml_escape(s))); } }
-    if let Some(g) = tags { if !g.trim().is_empty() { xml.push_str(&format!("  <Genre>{}</Genre>\n", xml_escape(g))); } }
-    xml.push_str("</ComicInfo>\n");
-    Some(xml)
-}
-
-#[derive(Debug, Default, Serialize, Clone)]
-pub struct MetadataProgress {
-    pub in_progress: bool,
-    pub started_at: Option<i64>,
-    pub finished_at: Option<i64>,
-    pub current_phase: Option<String>,
-    pub total_pending: Option<i64>,
-    pub processed_in_phase: usize,
-    pub mangabaka_updated: usize,
-    pub mal_updated: usize,
-    pub anilist_updated: usize,
-    pub merged_updated: usize,
-    pub last_heartbeat: Option<i64>,
-    pub error: Option<String>,
-}
-
-pub struct AppState {
-    db: Mutex<Connection>,
-    client: Client,
-    _enhanced_client: crate::http_client::EnhancedHttpClient,
-    metrics: crate::metrics::MetricsTracker,
-    config: crate::config::Config,
-    crawl_progress: Mutex<crawler::CrawlProgress>,
-    metadata_progress: Mutex<MetadataProgress>,
-    metadata_cancel: Mutex<bool>,
-}
-
-fn normalize_chapter_str(s: &str) -> String {
-    let lowered = s.to_lowercase();
-    let collapsed = lowered.split_whitespace().collect::<Vec<_>>().join(" ");
-    collapsed.trim().to_string()
-}
-
-fn extract_number(s: &str) -> Option<String> {
-    static NUM_RE: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::new(|| {
-        Regex::new(r"(?P<num>\d+(?:\.\d+)?)").unwrap()
-    });
-    NUM_RE.captures(s).and_then(|cap| cap.name("num").map(|m| m.as_str().to_string()))
-}
-
-fn find_best_chapter_match<'a>(chapters: &'a [crate::models::Chapter], query: &str) -> Option<&'a crate::models::Chapter> {
-    if chapters.is_empty() { return None; }
-    let q_norm = normalize_chapter_str(query);
-    // 1) exact
-    if let Some(ch) = chapters.iter().find(|c| c.chapter_number == query) { return Some(ch); }
-    // 2) normalized equality
-    if let Some(ch) = chapters.iter().find(|c| normalize_chapter_str(&c.chapter_number) == q_norm) { return Some(ch); }
-    // 3) numeric-only match
-    if let Some(qnum) = extract_number(&q_norm) {
-        if let Some(ch) = chapters.iter().find(|c| extract_number(&c.chapter_number).as_deref() == Some(qnum.as_str())) { return Some(ch); }
-        // suffix/prefix contains numerics
-        if let Some(ch) = chapters.iter().find(|c| normalize_chapter_str(&c.chapter_number).contains(&qnum)) { return Some(ch); }
-    }
-    // 4) substring fallback
-    chapters.iter().find(|c| normalize_chapter_str(&c.chapter_number).contains(&q_norm))
 }
 
 #[actix_web::main]
@@ -1549,7 +1983,9 @@ async fn main() -> std::io::Result<()> {
     let cfg = config::Config::load();
 
     // Create enhanced HTTP client from configuration
-    let enhanced_client = cfg.bot_detection.create_http_client()
+    let enhanced_client = cfg
+        .bot_detection
+        .create_http_client()
         .expect("Failed to create enhanced HTTP client");
 
     // Create metrics tracker
@@ -2009,5 +2445,10 @@ let (download_ok, download_error) = if let Ok(Some(row)) = rows.next() {
             }
         }
     }
-    Err(last_err.unwrap_or_else(|| std::io::Error::new(std::io::ErrorKind::AddrInUse, "No available ports 8080-8090")))
+    Err(last_err.unwrap_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::AddrInUse,
+            "No available ports 8080-8090",
+        )
+    }))
 }

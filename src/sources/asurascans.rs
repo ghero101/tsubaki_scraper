@@ -1,12 +1,15 @@
+use crate::models::{Chapter, Manga};
+use regex::Regex;
 use reqwest::Client;
 use scraper::{Html, Selector};
-use crate::models::{Manga, Chapter};
-use regex::Regex;
 
 const BASE_URL: &str = "https://asuracomic.net";
 
 /// Asura Scans - Next.js site with HTML-rendered data
-pub async fn search_manga_with_urls(client: &Client, _title: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+pub async fn search_manga_with_urls(
+    client: &Client,
+    _title: &str,
+) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     let html = client.get(BASE_URL).send().await?.text().await?;
     let document = Html::parse_document(&html);
 
@@ -52,8 +55,17 @@ pub async fn search_manga_with_urls(client: &Client, _title: &str) -> Result<Vec
 
                 // Clean up title - remove common unwanted patterns
                 // Remove "MANHWA", "MANGA", "Chapter X", ratings, etc.
-                let mut title = raw_title.split("Chapter").next().unwrap_or(&raw_title).trim().to_string();
-                title = title.replace("MANHWA", "").replace("MANGA", "").trim().to_string();
+                let mut title = raw_title
+                    .split("Chapter")
+                    .next()
+                    .unwrap_or(&raw_title)
+                    .trim()
+                    .to_string();
+                title = title
+                    .replace("MANHWA", "")
+                    .replace("MANGA", "")
+                    .trim()
+                    .to_string();
 
                 // Remove trailing numbers that might be ratings (e.g., "9.5")
                 let title_clean = Regex::new(r"\s*\d+\.?\d*\s*$").unwrap();
@@ -92,10 +104,17 @@ pub async fn search_manga_with_urls(client: &Client, _title: &str) -> Result<Vec
     Ok(results)
 }
 
-pub async fn get_chapters(client: &Client, series_url: &str) -> Result<Vec<Chapter>, reqwest::Error> {
+pub async fn get_chapters(
+    client: &Client,
+    series_url: &str,
+) -> Result<Vec<Chapter>, reqwest::Error> {
     let html = client.get(series_url).send().await?.text().await?;
 
-    log::debug!("AsuraScans: Fetched {} bytes from {}", html.len(), series_url);
+    log::debug!(
+        "AsuraScans: Fetched {} bytes from {}",
+        html.len(),
+        series_url
+    );
 
     // Extract chapter URLs using regex: href="series-slug/chapter/NUMBER"
     let chapter_regex = Regex::new(r#"href="([^"]*chapter/(\d+)[^"]*)""#).unwrap();

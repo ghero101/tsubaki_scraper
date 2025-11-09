@@ -16,7 +16,10 @@ pub async fn search_manga_with_urls(
     // Try browser first for JS-rendered content
     match kagane_browser::search_manga_with_urls().await {
         Ok(results) if !results.is_empty() => {
-            log::info!("Kagane: Successfully fetched {} manga using browser", results.len());
+            log::info!(
+                "Kagane: Successfully fetched {} manga using browser",
+                results.len()
+            );
             return Ok(results);
         }
         Ok(_) => log::warn!("Kagane: Browser returned no results, trying fallback"),
@@ -47,14 +50,36 @@ pub async fn search_manga_with_urls(
             let txt = script.text().collect::<String>();
             if let Ok(json) = serde_json::from_str::<Value>(&txt) {
                 // Try to find series list in props
-                if let Some(arr) = json.pointer("/props/pageProps/series")
-                    .and_then(|v| v.as_array()) {
+                if let Some(arr) = json
+                    .pointer("/props/pageProps/series")
+                    .and_then(|v| v.as_array())
+                {
                     for item in arr {
-                        let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let title = item
+                            .get("title")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
                         let slug = item.get("slug").and_then(|v| v.as_str()).unwrap_or("");
                         if !slug.is_empty() {
                             let series_url = format!("{}/series/{}", BASE_URL, slug);
-                            out.push((Manga { id: String::new(), title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                            out.push((
+                                Manga {
+                                    id: String::new(),
+                                    title,
+                                    alt_titles: None,
+                                    cover_url: None,
+                                    description: None,
+                                    tags: None,
+                                    rating: None,
+                                    monitored: None,
+                                    check_interval_secs: None,
+                                    discover_interval_secs: None,
+                                    last_chapter_check: None,
+                                    last_discover_check: None,
+                                },
+                                series_url,
+                            ));
                         }
                     }
                 }
@@ -91,7 +116,11 @@ pub async fn search_manga_with_urls(
                 let final_title = if title_text.is_empty() {
                     let slug = href.trim_start_matches("/series/");
                     // Skip hash-like slugs
-                    if slug.len() > 20 && slug.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+                    if slug.len() > 20
+                        && slug
+                            .chars()
+                            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+                    {
                         continue;
                     }
                     slug.replace(['-', '_'], " ")
@@ -129,7 +158,10 @@ pub async fn get_chapters(
     // Try browser first for JS-rendered content
     match kagane_browser::get_chapters(series_url).await {
         Ok(chapters) if !chapters.is_empty() => {
-            log::info!("Kagane: Successfully fetched {} chapters using browser", chapters.len());
+            log::info!(
+                "Kagane: Successfully fetched {} chapters using browser",
+                chapters.len()
+            );
             return Ok(chapters);
         }
         Ok(_) => log::warn!("Kagane: Browser returned no chapters, trying fallback"),
@@ -154,14 +186,38 @@ pub async fn get_chapters(
         if let Some(script) = document.select(&script_sel).next() {
             let txt = script.text().collect::<String>();
             if let Ok(json) = serde_json::from_str::<Value>(&txt) {
-                if let Some(arr) = json.pointer("/props/pageProps/chapters").and_then(|v| v.as_array()) {
+                if let Some(arr) = json
+                    .pointer("/props/pageProps/chapters")
+                    .and_then(|v| v.as_array())
+                {
                     for c in arr {
-                        let title = c.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let title = c
+                            .get("title")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
                         // Prefer absolute url or slug
-                        let href = c.get("url").and_then(|v| v.as_str()).map(|s| s.to_string())
-                            .or_else(|| c.get("slug").and_then(|v| v.as_str()).map(|s| format!("{}/chapter/{}", BASE_URL, s)));
+                        let href = c
+                            .get("url")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                            .or_else(|| {
+                                c.get("slug")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| format!("{}/chapter/{}", BASE_URL, s))
+                            });
                         if let Some(u) = href {
-                            chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: if title.is_empty() { u.clone() } else { title.clone() }, url: u, scraped: false });
+                            chapters.push(Chapter {
+                                id: 0,
+                                manga_source_data_id: 0,
+                                chapter_number: if title.is_empty() {
+                                    u.clone()
+                                } else {
+                                    title.clone()
+                                },
+                                url: u,
+                                scraped: false,
+                            });
                         }
                     }
                 }
@@ -174,10 +230,27 @@ pub async fn get_chapters(
         if let Ok(a_sel) = Selector::parse("a") {
             for a in document.select(&a_sel) {
                 if let Some(href) = a.value().attr("href") {
-                    if href.contains("/reader/") || href.contains("/read/") || href.contains("/chapter/") {
+                    if href.contains("/reader/")
+                        || href.contains("/read/")
+                        || href.contains("/chapter/")
+                    {
                         let chapter_title = a.text().collect::<String>().trim().to_string();
-                        let abs = if href.starts_with("http") { href.to_string() } else { format!("{}{}", BASE_URL, href) };
-                        chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: if chapter_title.is_empty() { href.to_string() } else { chapter_title }, url: abs, scraped: false });
+                        let abs = if href.starts_with("http") {
+                            href.to_string()
+                        } else {
+                            format!("{}{}", BASE_URL, href)
+                        };
+                        chapters.push(Chapter {
+                            id: 0,
+                            manga_source_data_id: 0,
+                            chapter_number: if chapter_title.is_empty() {
+                                href.to_string()
+                            } else {
+                                chapter_title
+                            },
+                            url: abs,
+                            scraped: false,
+                        });
                     }
                 }
             }
@@ -191,7 +264,13 @@ pub async fn get_chapters(
             let rel = cap.get(0).unwrap().as_str();
             if seen.insert(rel.to_string()) {
                 let url = format!("{}{}", BASE_URL, rel);
-                chapters.push(Chapter { id: 0, manga_source_data_id: 0, chapter_number: rel.to_string(), url, scraped: false });
+                chapters.push(Chapter {
+                    id: 0,
+                    manga_source_data_id: 0,
+                    chapter_number: rel.to_string(),
+                    url,
+                    scraped: false,
+                });
             }
         }
     }
@@ -199,7 +278,9 @@ pub async fn get_chapters(
     Ok(chapters)
 }
 
-pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+pub async fn search_all_series_with_urls(
+    client: &Client,
+) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     let mut page = 1u32;
     let mut out = Vec::new();
     loop {
@@ -229,14 +310,31 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
                         let final_title = if title_text.is_empty() {
                             let slug = href.trim_start_matches("/series/");
                             // Skip hash-like slugs
-                            if slug.len() > 20 && slug.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+                            if slug.len() > 20
+                                && slug
+                                    .chars()
+                                    .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+                            {
                                 continue;
                             }
                             slug.replace(['-', '_'], " ")
                         } else {
                             title_text
                         };
-                        let m = Manga { id: String::new(), title: final_title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None };
+                        let m = Manga {
+                            id: String::new(),
+                            title: final_title,
+                            alt_titles: None,
+                            cover_url: None,
+                            description: None,
+                            tags: None,
+                            rating: None,
+                            monitored: None,
+                            check_interval_secs: None,
+                            discover_interval_secs: None,
+                            last_chapter_check: None,
+                            last_discover_check: None,
+                        };
                         out.push((m, format!("{}{}", BASE_URL, href)));
                         items_in_page += 1;
                     }
@@ -248,13 +346,37 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
                     if let Some(script) = document.select(&script_sel).next() {
                         let txt = script.text().collect::<String>();
                         if let Ok(json) = serde_json::from_str::<Value>(&txt) {
-                            if let Some(arr) = json.pointer("/props/pageProps/series").and_then(|v| v.as_array()) {
+                            if let Some(arr) = json
+                                .pointer("/props/pageProps/series")
+                                .and_then(|v| v.as_array())
+                            {
                                 for item in arr {
-                                    let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                    let slug = item.get("slug").and_then(|v| v.as_str()).unwrap_or("");
+                                    let title = item
+                                        .get("title")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("")
+                                        .to_string();
+                                    let slug =
+                                        item.get("slug").and_then(|v| v.as_str()).unwrap_or("");
                                     if !slug.is_empty() {
                                         let series_url = format!("{}/series/{}", BASE_URL, slug);
-                                        out.push((Manga { id: String::new(), title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, series_url));
+                                        out.push((
+                                            Manga {
+                                                id: String::new(),
+                                                title,
+                                                alt_titles: None,
+                                                cover_url: None,
+                                                description: None,
+                                                tags: None,
+                                                rating: None,
+                                                monitored: None,
+                                                check_interval_secs: None,
+                                                discover_interval_secs: None,
+                                                last_chapter_check: None,
+                                                last_discover_check: None,
+                                            },
+                                            series_url,
+                                        ));
                                         items_in_page += 1;
                                     }
                                 }
@@ -273,32 +395,79 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
                 let slug = cap.get(1).unwrap().as_str();
 
                 // Skip hash-like slugs (all uppercase alphanumeric, 20+ chars)
-                if slug.len() > 20 && slug.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+                if slug.len() > 20
+                    && slug
+                        .chars()
+                        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+                {
                     continue;
                 }
 
                 if seen.insert(slug.to_string()) {
                     let url = format!("{}/series/{}", BASE_URL, slug);
-                    let title = slug.replace(['-','_'], " ");
-                    out.push((Manga { id: String::new(), title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, url));
+                    let title = slug.replace(['-', '_'], " ");
+                    out.push((
+                        Manga {
+                            id: String::new(),
+                            title,
+                            alt_titles: None,
+                            cover_url: None,
+                            description: None,
+                            tags: None,
+                            rating: None,
+                            monitored: None,
+                            check_interval_secs: None,
+                            discover_interval_secs: None,
+                            last_chapter_check: None,
+                            last_discover_check: None,
+                        },
+                        url,
+                    ));
                     items_in_page += 1;
                 }
             }
         }
-        if items_in_page == 0 { break; }
+        if items_in_page == 0 {
+            break;
+        }
         page += 1;
-        if page > 50 { break; }
+        if page > 50 {
+            break;
+        }
     }
 
     // Fallback: parse sitemap for series links (best-effort; may be CF-protected)
     if out.is_empty() {
-        if let Ok(sitemap_resp) = client.get(format!("{}/sitemap.xml", BASE_URL)).header("User-Agent", "rust_manga_scraper/0.1.0").send().await {
+        if let Ok(sitemap_resp) = client
+            .get(format!("{}/sitemap.xml", BASE_URL))
+            .header("User-Agent", "rust_manga_scraper/0.1.0")
+            .send()
+            .await
+        {
             if let Ok(sitemap) = sitemap_resp.text().await {
-                let re = regex::Regex::new(r"<loc>\s*(?P<loc>https?://[^<]+/series/[^<]+)\s*</loc>").unwrap();
+                let re =
+                    regex::Regex::new(r"<loc>\s*(?P<loc>https?://[^<]+/series/[^<]+)\s*</loc>")
+                        .unwrap();
                 for cap in re.captures_iter(&sitemap) {
                     let loc = cap.name("loc").unwrap().as_str().to_string();
                     let title = loc.split('/').last().unwrap_or("").replace('-', " ");
-                    out.push((Manga { id: String::new(), title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None }, loc));
+                    out.push((
+                        Manga {
+                            id: String::new(),
+                            title,
+                            alt_titles: None,
+                            cover_url: None,
+                            description: None,
+                            tags: None,
+                            rating: None,
+                            monitored: None,
+                            check_interval_secs: None,
+                            discover_interval_secs: None,
+                            last_chapter_check: None,
+                            last_discover_check: None,
+                        },
+                        loc,
+                    ));
                 }
             }
         }
@@ -309,17 +478,26 @@ pub async fn search_all_series_with_urls(client: &Client) -> Result<Vec<(Manga, 
 
 /// Extract external provider links from a Kagane series page and map them to known source IDs.
 pub async fn extract_provider_links(client: &Client, series_url: &str) -> Vec<(i32, String)> {
-    let mut out: Vec<(i32,String)> = Vec::new();
+    let mut out: Vec<(i32, String)> = Vec::new();
     let resp = match client
         .get(series_url)
         .header("User-Agent", "rust_manga_scraper/0.1.0")
         .header("Cookie", "nsfw=true; consent=true")
         .send()
         .await
-    { Ok(r)=>r, Err(_)=>return out };
-    let text = match resp.text().await { Ok(t)=>t, Err(_)=>return out };
+    {
+        Ok(r) => r,
+        Err(_) => return out,
+    };
+    let text = match resp.text().await {
+        Ok(t) => t,
+        Err(_) => return out,
+    };
     let doc = Html::parse_document(&text);
-    let a_sel = match Selector::parse("a") { Ok(s)=>s, Err(_)=>return out };
+    let a_sel = match Selector::parse("a") {
+        Ok(s) => s,
+        Err(_) => return out,
+    };
 
     // Map of hostname substrings to source IDs (must align with DB 'sources' table)
     let patterns: Vec<(&str, i32)> = vec![
@@ -353,7 +531,9 @@ pub async fn extract_provider_links(client: &Client, series_url: &str) -> Vec<(i
     for a in doc.select(&a_sel) {
         if let Some(href) = a.value().attr("href") {
             let h = href.to_lowercase();
-            if !(h.starts_with("http://") || h.starts_with("https://")) { continue; }
+            if !(h.starts_with("http://") || h.starts_with("https://")) {
+                continue;
+            }
             if let Some((_, sid)) = patterns.iter().find(|(pat, _)| h.contains(*pat)) {
                 if seen.insert((sid, h.clone())) {
                     out.push((*sid, href.to_string()));

@@ -43,7 +43,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("============================================");
-    println!("TOTAL CHAPTERS FROM {} SERIES: {}", results.len().min(3), total_chapters);
+    println!(
+        "TOTAL CHAPTERS FROM {} SERIES: {}",
+        results.len().min(3),
+        total_chapters
+    );
     println!("============================================");
 
     Ok(())

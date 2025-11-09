@@ -21,7 +21,10 @@ pub fn search_manga_with_urls_browser(
     // Wait for page to load - try multiple selectors
     let wait_selectors = ["a[href*='/series/']", "div", "main", "body"];
     for selector in &wait_selectors {
-        if scraper.wait_for_selector_with_timeout(selector, Duration::from_secs(5)).is_ok() {
+        if scraper
+            .wait_for_selector_with_timeout(selector, Duration::from_secs(5))
+            .is_ok()
+        {
             break;
         }
     }
@@ -249,9 +252,6 @@ mod tests {
             extract_chapter_number("https://example.com/chapter/10", ""),
             "Chapter 10"
         );
-        assert_eq!(
-            extract_chapter_number("", "Chapter 42"),
-            "Chapter 42"
-        );
+        assert_eq!(extract_chapter_number("", "Chapter 42"), "Chapter 42");
     }
 }

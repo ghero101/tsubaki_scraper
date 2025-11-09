@@ -29,13 +29,13 @@ impl BrowserScraper {
 
     /// Navigate to a URL and wait for page load
     pub fn navigate(&self, url: &str) -> Result<(), BrowserError> {
-        self.tab
-            .navigate_to(url)
-            .map_err(|e| BrowserError::NavigationError(format!("Failed to navigate to {}: {}", url, e)))?;
+        self.tab.navigate_to(url).map_err(|e| {
+            BrowserError::NavigationError(format!("Failed to navigate to {}: {}", url, e))
+        })?;
 
-        self.tab
-            .wait_until_navigated()
-            .map_err(|e| BrowserError::NavigationError(format!("Navigation timeout for {}: {}", url, e)))?;
+        self.tab.wait_until_navigated().map_err(|e| {
+            BrowserError::NavigationError(format!("Navigation timeout for {}: {}", url, e))
+        })?;
 
         Ok(())
     }
@@ -164,8 +164,9 @@ impl BrowserScraper {
             .capture_screenshot(Page::CaptureScreenshotFormatOption::Png, None, None, true)
             .map_err(|e| BrowserError::JavaScriptError(format!("Screenshot failed: {}", e)))?;
 
-        std::fs::write(path, screenshot_data)
-            .map_err(|e| BrowserError::JavaScriptError(format!("Failed to save screenshot: {}", e)))?;
+        std::fs::write(path, screenshot_data).map_err(|e| {
+            BrowserError::JavaScriptError(format!("Failed to save screenshot: {}", e))
+        })?;
 
         Ok(())
     }

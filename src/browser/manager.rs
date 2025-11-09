@@ -115,6 +115,6 @@ mod tests {
         assert!(options
             .args
             .iter()
-            .any(|arg| arg.contains("AutomationControlled")));
+            .any(|arg| arg.to_string_lossy().contains("AutomationControlled")));
     }
 }

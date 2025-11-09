@@ -1,12 +1,11 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 /// Metrics and monitoring for manga scraper sources
 ///
 /// Tracks success rates, error counts, and performance metrics for each source
-
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceMetrics {
@@ -75,8 +74,10 @@ impl SourceMetrics {
         // Categorize errors
         if error.contains("429") || error.to_lowercase().contains("rate limit") {
             self.rate_limit_hits += 1;
-        } else if error.to_lowercase().contains("cloudflare") ||
-                  error.contains("503") || error.contains("520") {
+        } else if error.to_lowercase().contains("cloudflare")
+            || error.contains("503")
+            || error.contains("520")
+        {
             self.cloudflare_challenges += 1;
         } else if error.to_lowercase().contains("timeout") {
             self.timeout_count += 1;
@@ -150,7 +151,11 @@ impl MetricsTracker {
             .or_insert_with(|| SourceMetrics::new(source_name.to_string()));
         source_metrics.record_retry();
 
-        log::debug!("[{}] Retry attempt - Total retries: {}", source_name, source_metrics.retry_count);
+        log::debug!(
+            "[{}] Retry attempt - Total retries: {}",
+            source_name,
+            source_metrics.retry_count
+        );
     }
 
     #[allow(dead_code)]
@@ -170,9 +175,7 @@ impl MetricsTracker {
         println!("\n=== Source Performance Summary ===\n");
 
         let mut sorted_metrics: Vec<_> = metrics.values().collect();
-        sorted_metrics.sort_by(|a, b| {
-            b.success_rate().partial_cmp(&a.success_rate()).unwrap()
-        });
+        sorted_metrics.sort_by(|a, b| b.success_rate().partial_cmp(&a.success_rate()).unwrap());
 
         for m in sorted_metrics {
             println!("Source: {}", m.source_name);

@@ -19,7 +19,10 @@ async fn test_http_client_with_custom_config() {
     };
 
     let client = EnhancedHttpClient::with_config(config);
-    assert!(client.is_ok(), "Failed to create HTTP client with custom config");
+    assert!(
+        client.is_ok(),
+        "Failed to create HTTP client with custom config"
+    );
 }
 
 #[tokio::test]
@@ -36,7 +39,10 @@ async fn test_fetch_success() {
         }
         Err(e) => {
             // Network might be unavailable in test environment
-            eprintln!("Warning: Network request failed (may be expected in CI): {}", e);
+            eprintln!(
+                "Warning: Network request failed (may be expected in CI): {}",
+                e
+            );
         }
     }
 }
@@ -46,7 +52,9 @@ async fn test_retry_on_rate_limit() {
     let client = EnhancedHttpClient::new().expect("Failed to create client");
 
     // httpbin.org/status/429 returns 429 Too Many Requests
-    let result = client.get_with_retry("https://httpbin.org/status/429").await;
+    let result = client
+        .get_with_retry("https://httpbin.org/status/429")
+        .await;
 
     // Should eventually fail after retries (429 is retryable but will keep returning 429)
     assert!(result.is_err() || result.unwrap().status().as_u16() == 429);
@@ -66,7 +74,10 @@ async fn test_headers_included() {
             assert!(response.contains("Accept"), "Should include Accept header");
         }
         Err(e) => {
-            eprintln!("Warning: Network request failed (may be expected in CI): {}", e);
+            eprintln!(
+                "Warning: Network request failed (may be expected in CI): {}",
+                e
+            );
         }
     }
 }
@@ -111,7 +122,9 @@ async fn test_cookie_support() {
     let client = EnhancedHttpClient::new().expect("Failed to create client");
 
     // httpbin.org/cookies/set redirects and sets a cookie
-    let result = client.get_with_retry("https://httpbin.org/cookies/set?test=value").await;
+    let result = client
+        .get_with_retry("https://httpbin.org/cookies/set?test=value")
+        .await;
 
     // Should successfully handle cookies and redirects
     match result {

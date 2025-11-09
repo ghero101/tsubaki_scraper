@@ -1,7 +1,7 @@
+use rand::Rng;
 use reqwest::{Client, ClientBuilder, Response};
 use std::time::Duration;
 use tokio::time::sleep;
-use rand::Rng;
 
 /// User agents to rotate through to avoid bot detection
 const USER_AGENTS: &[&str] = &[
@@ -134,7 +134,8 @@ impl EnhancedHttpClient {
 
         for attempt in 0..=self.config.max_retries {
             // Rotate user agent for each retry
-            let mut request = self.client
+            let mut request = self
+                .client
                 .get(url)
                 .header("User-Agent", Self::random_user_agent());
 
@@ -265,12 +266,26 @@ mod tests {
 
     #[test]
     fn test_retryable_status() {
-        assert!(EnhancedHttpClient::is_retryable_status(reqwest::StatusCode::TOO_MANY_REQUESTS));
-        assert!(EnhancedHttpClient::is_retryable_status(reqwest::StatusCode::INTERNAL_SERVER_ERROR));
-        assert!(EnhancedHttpClient::is_retryable_status(reqwest::StatusCode::BAD_GATEWAY));
-        assert!(EnhancedHttpClient::is_retryable_status(reqwest::StatusCode::SERVICE_UNAVAILABLE));
-        assert!(EnhancedHttpClient::is_retryable_status(reqwest::StatusCode::GATEWAY_TIMEOUT));
-        assert!(!EnhancedHttpClient::is_retryable_status(reqwest::StatusCode::NOT_FOUND));
-        assert!(!EnhancedHttpClient::is_retryable_status(reqwest::StatusCode::FORBIDDEN));
+        assert!(EnhancedHttpClient::is_retryable_status(
+            reqwest::StatusCode::TOO_MANY_REQUESTS
+        ));
+        assert!(EnhancedHttpClient::is_retryable_status(
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR
+        ));
+        assert!(EnhancedHttpClient::is_retryable_status(
+            reqwest::StatusCode::BAD_GATEWAY
+        ));
+        assert!(EnhancedHttpClient::is_retryable_status(
+            reqwest::StatusCode::SERVICE_UNAVAILABLE
+        ));
+        assert!(EnhancedHttpClient::is_retryable_status(
+            reqwest::StatusCode::GATEWAY_TIMEOUT
+        ));
+        assert!(!EnhancedHttpClient::is_retryable_status(
+            reqwest::StatusCode::NOT_FOUND
+        ));
+        assert!(!EnhancedHttpClient::is_retryable_status(
+            reqwest::StatusCode::FORBIDDEN
+        ));
     }
 }

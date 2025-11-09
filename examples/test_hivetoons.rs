@@ -4,7 +4,7 @@ use rust_manga_scraper::sources::hivetoons;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
-    
+
     let client = Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         .build()?;
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (manga, url) in results.iter().take(3) {
         println!("Testing: {}", manga.title);
         println!("  URL: {}", url);
-        
+
         match hivetoons::get_chapters(&client, &url).await {
             Ok(chapters) => {
                 println!("  ✓ Chapters: {}", chapters.len());
@@ -43,7 +43,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("============================================");
-    println!("TOTAL CHAPTERS FROM {} MANGA: {}", results.len().min(3), total_chapters);
+    println!(
+        "TOTAL CHAPTERS FROM {} MANGA: {}",
+        results.len().min(3),
+        total_chapters
+    );
     println!("============================================");
 
     Ok(())

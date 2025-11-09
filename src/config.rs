@@ -60,14 +60,30 @@ pub struct BotDetectionConfig {
     pub _rate_limit_delay_ms: u64,
 }
 
-fn default_true() -> bool { true }
-fn default_false() -> bool { false }
-fn default_max_retries() -> usize { 4 }
-fn default_initial_retry_delay() -> u64 { 500 }
-fn default_max_retry_delay() -> u64 { 8000 }
-fn default_timeout() -> u64 { 30 }
-fn default_browser_timeout() -> u64 { 30 }
-fn default_rate_limit() -> u64 { 300 }
+fn default_true() -> bool {
+    true
+}
+fn default_false() -> bool {
+    false
+}
+fn default_max_retries() -> usize {
+    4
+}
+fn default_initial_retry_delay() -> u64 {
+    500
+}
+fn default_max_retry_delay() -> u64 {
+    8000
+}
+fn default_timeout() -> u64 {
+    30
+}
+fn default_browser_timeout() -> u64 {
+    30
+}
+fn default_rate_limit() -> u64 {
+    300
+}
 
 impl Default for BotDetectionConfig {
     fn default() -> Self {
@@ -113,7 +129,9 @@ impl Config {
 
 impl BotDetectionConfig {
     /// Create an enhanced HTTP client from this configuration
-    pub fn create_http_client(&self) -> Result<crate::http_client::EnhancedHttpClient, reqwest::Error> {
+    pub fn create_http_client(
+        &self,
+    ) -> Result<crate::http_client::EnhancedHttpClient, reqwest::Error> {
         use crate::http_client::{EnhancedHttpClient, HttpClientConfig};
         use std::time::Duration;
 
@@ -131,7 +149,9 @@ impl BotDetectionConfig {
 
     /// Create a browser client from this configuration
     #[allow(dead_code)]
-    pub async fn create_browser_client(&self) -> Result<crate::browser_client::BrowserClient, Box<dyn std::error::Error>> {
+    pub async fn create_browser_client(
+        &self,
+    ) -> Result<crate::browser_client::BrowserClient, Box<dyn std::error::Error>> {
         use crate::browser_client::{BrowserClient, BrowserConfig};
         use std::time::Duration;
 

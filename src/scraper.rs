@@ -1,14 +1,14 @@
 use crate::models::Source;
+use headless_chrome::{Browser, LaunchOptions};
+use regex::Regex;
 use reqwest::{Client, Url};
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::{copy, Cursor};
 use std::path::PathBuf;
-use zip::write::{FileOptions, ZipWriter};
-use regex::Regex;
-use headless_chrome::{Browser, LaunchOptions};
 use std::time::Duration;
+use zip::write::{FileOptions, ZipWriter};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,32 +54,59 @@ fn format_chapter_label(chapter_number: &str, chapter_url: &str) -> String {
     let vol_re = Regex::new(r"(?i)(?:vol(?:ume)?\s*)?(\d+)").unwrap();
 
     // From chapter_number text
-    if let Some(cap) = num_re.captures(chapter_number) { ch = cap.get(1).map(|m| m.as_str().to_string()); }
-    if let Some(cap) = vol_re.captures(chapter_number) { vol = cap.get(1).map(|m| m.as_str().to_string()); }
+    if let Some(cap) = num_re.captures(chapter_number) {
+        ch = cap.get(1).map(|m| m.as_str().to_string());
+    }
+    if let Some(cap) = vol_re.captures(chapter_number) {
+        vol = cap.get(1).map(|m| m.as_str().to_string());
+    }
     if chapter_number.contains('-') {
         let parts: Vec<&str> = chapter_number.splitn(2, '-').collect();
-        if parts.len() == 2 { let t = parts[1].trim(); if !t.is_empty() { title = Some(t.to_string()); } }
+        if parts.len() == 2 {
+            let t = parts[1].trim();
+            if !t.is_empty() {
+                title = Some(t.to_string());
+            }
+        }
     }
 
     // From URL slug
     let lower_url = chapter_url.to_lowercase();
     if ch.is_none() {
-        if let Some(cap) = Regex::new(r"chapter[-/](\d+(?:\.\d+)?)").unwrap().captures(&lower_url) {
+        if let Some(cap) = Regex::new(r"chapter[-/](\d+(?:\.\d+)?)")
+            .unwrap()
+            .captures(&lower_url)
+        {
             ch = cap.get(1).map(|m| m.as_str().to_string());
         }
     }
     if vol.is_none() {
-        if let Some(cap) = Regex::new(r"vol(?:ume)?[-/](\d+)").unwrap().captures(&lower_url) {
+        if let Some(cap) = Regex::new(r"vol(?:ume)?[-/](\d+)")
+            .unwrap()
+            .captures(&lower_url)
+        {
             vol = cap.get(1).map(|m| m.as_str().to_string());
         }
     }
 
     // Build label
     let mut parts: Vec<String> = Vec::new();
-    if let Some(v) = vol { parts.push(format!("Vol.{}", v)); }
-    if let Some(cn) = ch { parts.push(format!("Ch.{}", cn)); }
-    let base = if parts.is_empty() { chapter_number.to_string() } else { parts.join(" ") };
-    if let Some(t) = title { format!("{} - {}", base, t) } else { base }
+    if let Some(v) = vol {
+        parts.push(format!("Vol.{}", v));
+    }
+    if let Some(cn) = ch {
+        parts.push(format!("Ch.{}", cn));
+    }
+    let base = if parts.is_empty() {
+        chapter_number.to_string()
+    } else {
+        parts.join(" ")
+    };
+    if let Some(t) = title {
+        format!("{} - {}", base, t)
+    } else {
+        base
+    }
 }
 
 pub async fn download_chapter(
@@ -183,7 +210,9 @@ pub async fn download_chapter(
                 let mut seen = std::collections::HashSet::new();
                 for cap in re.captures_iter(&response) {
                     let url = cap.get(0).unwrap().as_str().to_string();
-                    if seen.insert(url.clone()) { image_list.push(url); }
+                    if seen.insert(url.clone()) {
+                        image_list.push(url);
+                    }
                 }
             }
 
@@ -194,13 +223,22 @@ pub async fn download_chapter(
                 .unwrap_or_default();
             for (i, src) in image_list.iter().enumerate() {
                 let full_url = if let Ok(base) = Url::parse(chapter_url) {
-                    base.join(src).map(|u| u.to_string()).unwrap_or_else(|_| src.clone())
+                    base.join(src)
+                        .map(|u| u.to_string())
+                        .unwrap_or_else(|_| src.clone())
                 } else {
                     src.clone()
                 };
                 let response = client
                     .get(&full_url)
-                    .header("Referer", if !origin.is_empty() { origin.as_str() } else { chapter_url })
+                    .header(
+                        "Referer",
+                        if !origin.is_empty() {
+                            origin.as_str()
+                        } else {
+                            chapter_url
+                        },
+                    )
                     .header("User-Agent", "rust_manga_scraper/0.1.0")
                     .send()
                     .await?;
@@ -278,7 +316,9 @@ pub async fn download_chapter(
                 let mut seen = std::collections::HashSet::new();
                 for cap in re.captures_iter(&response) {
                     let url = cap.get(0).unwrap().as_str().to_string();
-                    if seen.insert(url.clone()) { image_list.push(url); }
+                    if seen.insert(url.clone()) {
+                        image_list.push(url);
+                    }
                 }
             }
             for (i, image_url) in image_list.iter().enumerate() {
@@ -315,13 +355,30 @@ pub async fn ensure_cover_downloaded(
     std::fs::create_dir_all(&covers_dir)?;
     // Determine ext
     let ext = cover_url
-        .rsplit('.').next().unwrap_or("jpg")
-        .split('?').next().unwrap_or("jpg");
-    let fname = format!("{}-{}-cover.{}", source_id, sanitize_filename(source_name_from_id(source_id)), ext);
+        .rsplit('.')
+        .next()
+        .unwrap_or("jpg")
+        .split('?')
+        .next()
+        .unwrap_or("jpg");
+    let fname = format!(
+        "{}-{}-cover.{}",
+        source_id,
+        sanitize_filename(source_name_from_id(source_id)),
+        ext
+    );
     let path = covers_dir.join(&fname);
-    if path.exists() { return Ok(Some(path.to_string_lossy().to_string())); }
-    let resp = client.get(cover_url).header("User-Agent", "rust_manga_scraper/0.1.0").send().await?;
-    if !resp.status().is_success() { return Ok(None); }
+    if path.exists() {
+        return Ok(Some(path.to_string_lossy().to_string()));
+    }
+    let resp = client
+        .get(cover_url)
+        .header("User-Agent", "rust_manga_scraper/0.1.0")
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        return Ok(None);
+    }
     let bytes = resp.bytes().await?;
     std::fs::write(&path, &bytes)?;
     Ok(Some(path.to_string_lossy().to_string()))
@@ -332,12 +389,17 @@ async fn download_chapter_with_browser(
     client: &Client,
     chapter_url: &str,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    use crate::cloudflare_bypass::{
+        get_fingerprint_spoofing_script, CloudflareConfig, SessionManager,
+    };
     use std::io::Cursor;
-    use crate::cloudflare_bypass::{CloudflareConfig, get_fingerprint_spoofing_script, SessionManager};
 
     // Load Cloudflare bypass configuration
     let cf_config = CloudflareConfig::load().unwrap_or_else(|e| {
-        log::warn!("Failed to load cloudflare_config.toml, using defaults: {}", e);
+        log::warn!(
+            "Failed to load cloudflare_config.toml, using defaults: {}",
+            e
+        );
         CloudflareConfig::default()
     });
 
@@ -350,7 +412,7 @@ async fn download_chapter_with_browser(
 
     // Configure browser with all bypass features
     let mut launch_options = LaunchOptions::default();
-    launch_options.headless = cf_config.browser.headless;  // Support real Chrome!
+    launch_options.headless = cf_config.browser.headless; // Support real Chrome!
     launch_options.sandbox = false;
 
     // Build args list with stealth + config options
@@ -393,14 +455,15 @@ async fn download_chapter_with_browser(
     args.push(std::ffi::OsStr::new(&ua_arg));
 
     // Proxy support (Feature #1: Residential Proxies)
-    let proxy_arg: Option<String> = if cf_config.proxy.enabled && !cf_config.proxy.proxies.is_empty() {
-        // Use first proxy for now (rotation would need global state)
-        let proxy = &cf_config.proxy.proxies[0];
-        log::info!("🌐 Using proxy: {}", proxy);
-        Some(format!("--proxy-server={}", proxy))
-    } else {
-        None
-    };
+    let proxy_arg: Option<String> =
+        if cf_config.proxy.enabled && !cf_config.proxy.proxies.is_empty() {
+            // Use first proxy for now (rotation would need global state)
+            let proxy = &cf_config.proxy.proxies[0];
+            log::info!("🌐 Using proxy: {}", proxy);
+            Some(format!("--proxy-server={}", proxy))
+        } else {
+            None
+        };
     if let Some(ref proxy_str) = proxy_arg {
         args.push(std::ffi::OsStr::new(proxy_str));
     }
@@ -413,7 +476,10 @@ async fn download_chapter_with_browser(
 
     // FEATURE #5: Restore session cookies if available
     if let Some(session_data) = session_manager.get_session(chapter_url) {
-        log::info!("🔄 Restoring {} saved cookies from previous session", session_data.cookies.len());
+        log::info!(
+            "🔄 Restoring {} saved cookies from previous session",
+            session_data.cookies.len()
+        );
 
         // Set cookies using Chrome DevTools Protocol
         // Note: Cookie restoration requires navigating to the domain first for some browsers
@@ -521,7 +587,8 @@ async fn download_chapter_with_browser(
         if let Some(obj) = result_json.as_object() {
             if let Some(has_captcha) = obj.get("hasCaptcha") {
                 if has_captcha.as_bool().unwrap_or(false) {
-                    let site_key = obj.get("captchaSiteKey")
+                    let site_key = obj
+                        .get("captchaSiteKey")
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown");
 
@@ -535,7 +602,9 @@ async fn download_chapter_with_browser(
                     // }
 
                     if !cf_config.captcha.enabled {
-                        log::warn!("CAPTCHA solving is disabled. Enable it in cloudflare_config.toml");
+                        log::warn!(
+                            "CAPTCHA solving is disabled. Enable it in cloudflare_config.toml"
+                        );
                     }
                 }
             }
@@ -549,7 +618,9 @@ async fn download_chapter_with_browser(
     // Note: Full cookie extraction requires CDP Network.getAllCookies implementation
     // Session manager infrastructure is ready for future enhancement
     if cf_config.session.enabled {
-        log::debug!("Session management enabled (cookie extraction requires CDP Network.getAllCookies)");
+        log::debug!(
+            "Session management enabled (cookie extraction requires CDP Network.getAllCookies)"
+        );
     }
 
     // Get HTML content
@@ -580,10 +651,15 @@ async fn download_chapter_with_browser(
                     .or_else(|| element.value().attr("data-lazy-src"))
                 {
                     let url_lower = image_url.to_lowercase();
-                    if (url_lower.contains(".jpg") || url_lower.contains(".jpeg") ||
-                        url_lower.contains(".png") || url_lower.contains(".webp")) &&
-                       !url_lower.contains("logo") && !url_lower.contains("icon") &&
-                       !url_lower.contains("avatar") && !url_lower.contains("banner") {
+                    if (url_lower.contains(".jpg")
+                        || url_lower.contains(".jpeg")
+                        || url_lower.contains(".png")
+                        || url_lower.contains(".webp"))
+                        && !url_lower.contains("logo")
+                        && !url_lower.contains("icon")
+                        && !url_lower.contains("avatar")
+                        && !url_lower.contains("banner")
+                    {
                         image_list.push(image_url.to_string());
                     }
                 }
@@ -619,15 +695,19 @@ async fn download_chapter_with_browser(
         if image_list.is_empty() {
             if let Some(sources_start) = html.find("\"sources\":[") {
                 // Find the end of the sources array (look for the closing bracket)
-                let search_range = &html[sources_start..sources_start + std::cmp::min(50000, html.len() - sources_start)];
+                let search_range = &html[sources_start
+                    ..sources_start + std::cmp::min(50000, html.len() - sources_start)];
                 if let Some(array_end) = search_range.rfind("]") {
                     let json_str = &html[sources_start..sources_start + array_end + 1];
                     if let Some(array_start) = json_str.find("[") {
                         let array_str = &json_str[array_start..];
-                        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(array_str) {
+                        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(array_str)
+                        {
                             if let Some(sources) = json_value.as_array() {
                                 for source_obj in sources {
-                                    if let Some(images_array) = source_obj.get("images").and_then(|i| i.as_array()) {
+                                    if let Some(images_array) =
+                                        source_obj.get("images").and_then(|i| i.as_array())
+                                    {
                                         for img_url in images_array {
                                             if let Some(url) = img_url.as_str() {
                                                 image_list.push(url.to_string());
@@ -655,15 +735,27 @@ async fn download_chapter_with_browser(
 
     for (i, image_url) in image_list.iter().enumerate() {
         let full_url = if let Some(ref b) = base {
-            b.join(image_url).map(|u| u.to_string()).unwrap_or(image_url.clone())
+            b.join(image_url)
+                .map(|u| u.to_string())
+                .unwrap_or(image_url.clone())
         } else {
             image_url.clone()
         };
 
         let response = client
             .get(&full_url)
-            .header("Referer", if !origin.is_empty() { origin.as_str() } else { chapter_url })
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .header(
+                "Referer",
+                if !origin.is_empty() {
+                    origin.as_str()
+                } else {
+                    chapter_url
+                },
+            )
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            )
             .send()
             .await?;
 
@@ -684,7 +776,7 @@ pub async fn download_chapter_to_memory(
     use std::io::Cursor;
 
     // Check if this source requires browser automation (Cloudflare-protected)
-    let cloudflare_sources = vec![3, 9, 20, 38, 39, 40, 59];  // RizzComic, ResetScans, HiveToons, QiScans, RizzFables, RokariComics, WitchScans
+    let cloudflare_sources = vec![3, 9, 20, 38, 39, 40, 59]; // RizzComic, ResetScans, HiveToons, QiScans, RizzFables, RokariComics, WitchScans
     if cloudflare_sources.contains(&source_id) {
         return download_chapter_with_browser(client, chapter_url).await;
     }
@@ -743,11 +835,22 @@ pub async fn download_chapter_to_memory(
                 .unwrap_or_default();
             for (i, src) in image_list.iter().enumerate() {
                 let full_url = if let Ok(base) = reqwest::Url::parse(chapter_url) {
-                    base.join(src).map(|u| u.to_string()).unwrap_or_else(|_| src.clone())
-                } else { src.clone() };
+                    base.join(src)
+                        .map(|u| u.to_string())
+                        .unwrap_or_else(|_| src.clone())
+                } else {
+                    src.clone()
+                };
                 let response = client
                     .get(&full_url)
-                    .header("Referer", if !origin.is_empty() { origin.as_str() } else { chapter_url })
+                    .header(
+                        "Referer",
+                        if !origin.is_empty() {
+                            origin.as_str()
+                        } else {
+                            chapter_url
+                        },
+                    )
                     .header("User-Agent", "rust_manga_scraper/0.1.0")
                     .send()
                     .await?;
@@ -822,10 +925,15 @@ pub async fn download_chapter_to_memory(
                         {
                             // Filter out obviously non-chapter images
                             let url_lower = image_url.to_lowercase();
-                            if (url_lower.contains(".jpg") || url_lower.contains(".jpeg") ||
-                                url_lower.contains(".png") || url_lower.contains(".webp")) &&
-                               !url_lower.contains("logo") && !url_lower.contains("icon") &&
-                               !url_lower.contains("avatar") && !url_lower.contains("banner") {
+                            if (url_lower.contains(".jpg")
+                                || url_lower.contains(".jpeg")
+                                || url_lower.contains(".png")
+                                || url_lower.contains(".webp"))
+                                && !url_lower.contains("logo")
+                                && !url_lower.contains("icon")
+                                && !url_lower.contains("avatar")
+                                && !url_lower.contains("banner")
+                            {
                                 image_list.push(image_url.to_string());
                             }
                         }
@@ -847,7 +955,9 @@ pub async fn download_chapter_to_memory(
                         if let Some(array_start) = json_str.find("[") {
                             let array_str = &json_str[array_start..];
                             // Try to parse as JSON
-                            if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(array_str) {
+                            if let Ok(json_value) =
+                                serde_json::from_str::<serde_json::Value>(array_str)
+                            {
                                 if let Some(images) = json_value.as_array() {
                                     for img in images {
                                         if let Some(url) = img.get("url").and_then(|u| u.as_str()) {
@@ -869,13 +979,22 @@ pub async fn download_chapter_to_memory(
 
             for (i, image_url) in image_list.iter().enumerate() {
                 let full_url = if let Some(ref b) = base {
-                    b.join(image_url).map(|u| u.to_string()).unwrap_or(image_url.clone())
+                    b.join(image_url)
+                        .map(|u| u.to_string())
+                        .unwrap_or(image_url.clone())
                 } else {
                     image_url.clone()
                 };
                 let response = client
                     .get(&full_url)
-                    .header("Referer", if !origin.is_empty() { origin.as_str() } else { chapter_url })
+                    .header(
+                        "Referer",
+                        if !origin.is_empty() {
+                            origin.as_str()
+                        } else {
+                            chapter_url
+                        },
+                    )
                     .header("User-Agent", "rust_manga_scraper/0.1.0")
                     .send()
                     .await?;

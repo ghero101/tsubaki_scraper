@@ -1,10 +1,9 @@
 /// Comprehensive source validation test
 /// Tests all sources by collecting 10 manga and their chapters
 /// This helps identify which sources are still working and which need fixes
-
 use reqwest::Client;
 use rust_manga_scraper::models::Manga;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -61,7 +60,10 @@ macro_rules! test_source {
                     for (manga, url) in manga_list.iter().take(3) {
                         sample_manga.push(manga.title.clone());
 
-                        if let Ok(chapters) = rust_manga_scraper::sources::$source_mod::get_chapters(&client, &url).await {
+                        if let Ok(chapters) =
+                            rust_manga_scraper::sources::$source_mod::get_chapters(&client, &url)
+                                .await
+                        {
                             total_chapters += chapters.len();
                         }
                     }
@@ -87,7 +89,10 @@ macro_rules! test_source {
                     "TIMEOUT"
                 } else if error_msg.contains("dns") || error_msg.contains("resolve") {
                     "DNS_ERROR"
-                } else if error_msg.contains("ssl") || error_msg.contains("tls") || error_msg.contains("certificate") {
+                } else if error_msg.contains("ssl")
+                    || error_msg.contains("tls")
+                    || error_msg.contains("certificate")
+                {
                     "SSL_ERROR"
                 } else {
                     "ERROR"
@@ -332,10 +337,17 @@ async fn test_all_sources_comprehensive() {
     println!("\n╔════════════════════════════════════════════════════════════╗");
     println!("║                    FINAL RESULTS                           ║");
     println!("╠════════════════════════════════════════════════════════════╣");
-    println!("║  ✅ Working Sources:  {:2}/{:2} ({:3.0}%)                      ║",
-        working, total, (working as f32 / total as f32) * 100.0);
-    println!("║  ❌ Failed Sources:   {:2}/{:2}                               ║",
-        total - working, total);
+    println!(
+        "║  ✅ Working Sources:  {:2}/{:2} ({:3.0}%)                      ║",
+        working,
+        total,
+        (working as f32 / total as f32) * 100.0
+    );
+    println!(
+        "║  ❌ Failed Sources:   {:2}/{:2}                               ║",
+        total - working,
+        total
+    );
     println!("╚════════════════════════════════════════════════════════════╝\n");
 }
 
@@ -352,7 +364,8 @@ async fn test_kdtnovels() -> SourceTestResult {
     match rust_manga_scraper::sources::kdtnovels::search_manga_with_urls(&client, "").await {
         Ok(results) => {
             let manga_count = results.len().min(10);
-            let sample_manga: Vec<String> = results.iter()
+            let sample_manga: Vec<String> = results
+                .iter()
                 .take(3)
                 .map(|(m, _)| m.title.clone())
                 .collect();
@@ -387,7 +400,7 @@ async fn test_kdtnovels() -> SourceTestResult {
             duration_ms: start.elapsed().as_millis(),
             error: Some(e.to_string()),
             sample_manga: vec![],
-        }
+        },
     }
 }
 
@@ -400,7 +413,12 @@ async fn test_mangadex() -> SourceTestResult {
 
     let start = Instant::now();
 
-    match rust_manga_scraper::sources::mangadex::search_all_manga(&client, rust_manga_scraper::sources::mangadex::BASE_URL).await {
+    match rust_manga_scraper::sources::mangadex::search_all_manga(
+        &client,
+        rust_manga_scraper::sources::mangadex::BASE_URL,
+    )
+    .await
+    {
         Ok(results) => {
             let manga_list: Vec<Manga> = results.into_iter().take(10).collect();
             let manga_count = manga_list.len();
@@ -411,14 +429,21 @@ async fn test_mangadex() -> SourceTestResult {
             for manga in manga_list.iter().take(3) {
                 sample_manga.push(manga.title.clone());
 
-                if let Ok(chapters) = rust_manga_scraper::sources::mangadex::get_chapters(&client, &manga.id).await {
+                if let Ok(chapters) =
+                    rust_manga_scraper::sources::mangadex::get_chapters(&client, &manga.id).await
+                {
                     total_chapters += chapters.len();
                 }
             }
 
             SourceTestResult {
                 source_name: "MangaDex".to_string(),
-                status: if manga_count > 0 { "WORKING" } else { "NO_DATA" }.to_string(),
+                status: if manga_count > 0 {
+                    "WORKING"
+                } else {
+                    "NO_DATA"
+                }
+                .to_string(),
                 manga_count,
                 total_chapters,
                 duration_ms: start.elapsed().as_millis(),
@@ -434,7 +459,7 @@ async fn test_mangadex() -> SourceTestResult {
             duration_ms: start.elapsed().as_millis(),
             error: Some(e.to_string()),
             sample_manga: vec![],
-        }
+        },
     }
 }
 
@@ -455,7 +480,8 @@ fn print_summary_table(results: &[SourceTestResult]) {
             _ => "❓",
         };
 
-        println!("║ {:<17} ║ {}{:<11} ║ {:>9} ║ {:>9} ║ {:>9} ║",
+        println!(
+            "║ {:<17} ║ {}{:<11} ║ {:>9} ║ {:>9} ║ {:>9} ║",
             truncate(&result.source_name, 17),
             status_symbol,
             truncate(&result.status, 10),
@@ -485,6 +511,6 @@ fn truncate(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
-        format!("{}...", &s[..max_len-3])
+        format!("{}...", &s[..max_len - 3])
     }
 }

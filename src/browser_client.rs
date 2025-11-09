@@ -1,9 +1,9 @@
 use headless_chrome::{Browser, LaunchOptions, Tab};
-use std::sync::Arc;
-use std::time::Duration;
-use std::path::PathBuf;
 use once_cell::sync::Lazy;
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 /// Cached Chrome executable path
 static CHROME_PATH: Lazy<Mutex<Option<PathBuf>>> = Lazy::new(|| Mutex::new(None));
@@ -98,9 +98,17 @@ fn find_system_chrome() -> Option<PathBuf> {
     }
 
     // Try to find in PATH
-    if let Ok(output) = std::process::Command::new(if cfg!(target_os = "windows") { "where" } else { "which" })
-        .arg(if cfg!(target_os = "windows") { "chrome.exe" } else { "chromium" })
-        .output()
+    if let Ok(output) = std::process::Command::new(if cfg!(target_os = "windows") {
+        "where"
+    } else {
+        "which"
+    })
+    .arg(if cfg!(target_os = "windows") {
+        "chrome.exe"
+    } else {
+        "chromium"
+    })
+    .output()
     {
         if output.status.success() {
             if let Ok(path_str) = String::from_utf8(output.stdout) {
@@ -123,7 +131,9 @@ async fn download_chromium() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let download_dir = if let Some(cache_dir) = dirs::cache_dir() {
         cache_dir.join("rust_manga_scraper").join("chromium")
     } else {
-        std::env::temp_dir().join("rust_manga_scraper").join("chromium")
+        std::env::temp_dir()
+            .join("rust_manga_scraper")
+            .join("chromium")
     };
 
     std::fs::create_dir_all(&download_dir)?;
@@ -140,7 +150,10 @@ async fn download_chromium() -> Result<PathBuf, Box<dyn std::error::Error>> {
     // Fetch chromium asynchronously
     let info = fetcher.fetch().await?;
 
-    log::info!("Chromium downloaded successfully: {:?}", info.executable_path);
+    log::info!(
+        "Chromium downloaded successfully: {:?}",
+        info.executable_path
+    );
 
     Ok(info.executable_path)
 }
@@ -158,7 +171,9 @@ impl BrowserClient {
     }
 
     /// Create a new browser client with custom configuration
-    pub async fn with_config(mut config: BrowserConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn with_config(
+        mut config: BrowserConfig,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         use std::ffi::OsStr;
 
         // Ensure Chrome is available (find system Chrome or download if needed)
@@ -173,7 +188,10 @@ impl BrowserClient {
             None
         };
 
-        let user_agent_arg = config.user_agent.as_ref().map(|ua| format!("--user-agent={}", ua));
+        let user_agent_arg = config
+            .user_agent
+            .as_ref()
+            .map(|ua| format!("--user-agent={}", ua));
 
         // Build list of chrome arguments
         let mut args: Vec<&OsStr> = vec![
@@ -247,8 +265,7 @@ impl BrowserClient {
 
         let tab = self.create_tab()?;
 
-        tab.navigate_to(url)?
-            .wait_until_navigated()?;
+        tab.navigate_to(url)?.wait_until_navigated()?;
 
         // Wait for network idle (no requests for 500ms)
         tab.wait_for_element_with_custom_timeout("body", self.config.timeout)?;
@@ -311,7 +328,10 @@ impl BrowserClient {
         ];
 
         for selector in indicators {
-            if tab.wait_for_element_with_custom_timeout(selector, Duration::from_secs(2)).is_ok() {
+            if tab
+                .wait_for_element_with_custom_timeout(selector, Duration::from_secs(2))
+                .is_ok()
+            {
                 return true;
             }
         }
@@ -406,17 +426,17 @@ mod tests {
         assert_eq!(config.disable_images, true);
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore] // Ignore by default as it requires Chrome/Chromium
-    fn test_browser_creation() {
-        let client = BrowserClient::new();
+    async fn test_browser_creation() {
+        let client = BrowserClient::new().await;
         assert!(client.is_ok());
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore] // Ignore by default as it requires Chrome/Chromium and internet
-    fn test_simple_navigation() {
-        let client = BrowserClient::new().unwrap();
+    async fn test_simple_navigation() {
+        let client = BrowserClient::new().await.unwrap();
         let result = client.get_html("https://example.com");
         assert!(result.is_ok());
         let html = result.unwrap();

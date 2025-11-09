@@ -1,18 +1,25 @@
 #![allow(dead_code)]
+use crate::models::{Chapter, Manga};
 use reqwest::Client;
-use crate::models::{Manga, Chapter};
 
 const BASE_URL: &str = "https://myanimelist.net";
 const API_URL: &str = "https://api.myanimelist.net/v2";
 
 /// MyAnimeList - Metadata source (does not host chapters)
 /// Note: This is a metadata/tracking source, not a reading source
-pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+pub async fn search_manga_with_urls(
+    client: &Client,
+    title: &str,
+) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     // If no search term, get top manga instead
     let search_url = if title.is_empty() {
         format!("{}/topmanga.php?limit=0", BASE_URL)
     } else {
-        format!("{}/manga.php?q={}&cat=manga", BASE_URL, urlencoding::encode(title))
+        format!(
+            "{}/manga.php?q={}&cat=manga",
+            BASE_URL,
+            urlencoding::encode(title)
+        )
     };
 
     let response = match client.get(&search_url).send().await {
@@ -53,20 +60,25 @@ pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<
                     let title = link.text().collect::<String>().trim().to_string();
 
                     if !title.is_empty() && href.contains("/manga/") {
-                        results.push((Manga {
-                            id: String::new(),
-                            title,
-                            alt_titles: None,
-                            cover_url: None,
-                            description: Some("Metadata source - no chapters available".to_string()),
-                            tags: Some("MyAnimeList".to_string()),
-                            rating: None,
-                            monitored: None,
-                            check_interval_secs: None,
-                            discover_interval_secs: None,
-                            last_chapter_check: None,
-                            last_discover_check: None,
-                        }, url));
+                        results.push((
+                            Manga {
+                                id: String::new(),
+                                title,
+                                alt_titles: None,
+                                cover_url: None,
+                                description: Some(
+                                    "Metadata source - no chapters available".to_string(),
+                                ),
+                                tags: Some("MyAnimeList".to_string()),
+                                rating: None,
+                                monitored: None,
+                                check_interval_secs: None,
+                                discover_interval_secs: None,
+                                last_chapter_check: None,
+                                last_discover_check: None,
+                            },
+                            url,
+                        ));
                     }
                 }
             }
@@ -79,7 +91,10 @@ pub async fn search_manga_with_urls(client: &Client, title: &str) -> Result<Vec<
     Ok(results)
 }
 
-pub async fn get_chapters(_client: &Client, _series_url: &str) -> Result<Vec<Chapter>, reqwest::Error> {
+pub async fn get_chapters(
+    _client: &Client,
+    _series_url: &str,
+) -> Result<Vec<Chapter>, reqwest::Error> {
     // MyAnimeList is a metadata source, it doesn't host chapters
     Ok(Vec::new())
 }

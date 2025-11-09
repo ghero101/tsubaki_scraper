@@ -1,7 +1,7 @@
-use reqwest::Client;
-use crate::models::{Manga, Chapter};
-use serde::Deserialize;
+use crate::models::{Chapter, Manga};
 use regex::Regex;
+use reqwest::Client;
+use serde::Deserialize;
 
 const BASE_URL: &str = "https://flamecomics.xyz";
 
@@ -79,10 +79,12 @@ struct ChapterData {
 fn extract_next_data(html: &str) -> Result<NextData, Box<dyn std::error::Error>> {
     let re = Regex::new(r#"<script id="__NEXT_DATA__" type="application/json">(.+?)</script>"#)?;
 
-    let captures = re.captures(html)
+    let captures = re
+        .captures(html)
         .ok_or("Could not find __NEXT_DATA__ in HTML")?;
 
-    let json_str = captures.get(1)
+    let json_str = captures
+        .get(1)
         .ok_or("Could not extract JSON from __NEXT_DATA__")?
         .as_str();
 
@@ -91,7 +93,10 @@ fn extract_next_data(html: &str) -> Result<NextData, Box<dyn std::error::Error>>
 }
 
 /// Flame Comics - Free scanlation site (Next.js/React app)
-pub async fn search_manga_with_urls(client: &Client, _title: &str) -> Result<Vec<(Manga, String)>, reqwest::Error> {
+pub async fn search_manga_with_urls(
+    client: &Client,
+    _title: &str,
+) -> Result<Vec<(Manga, String)>, reqwest::Error> {
     let url = format!("{}", BASE_URL);
     let html = client.get(&url).send().await?.text().await?;
 
@@ -117,7 +122,10 @@ pub async fn search_manga_with_urls(client: &Client, _title: &str) -> Result<Vec
                         if c.starts_with("http") {
                             c.clone()
                         } else {
-                            format!("https://cdn.flamecomics.xyz/uploads/images/series/{}/{}", series.series_id, c)
+                            format!(
+                                "https://cdn.flamecomics.xyz/uploads/images/series/{}/{}",
+                                series.series_id, c
+                            )
                         }
                     }),
                     description: series.description.clone(),
@@ -147,15 +155,25 @@ pub async fn search_manga_with_urls(client: &Client, _title: &str) -> Result<Vec
     Ok(results)
 }
 
-pub async fn get_chapters(client: &Client, series_url: &str) -> Result<Vec<Chapter>, reqwest::Error> {
+pub async fn get_chapters(
+    client: &Client,
+    series_url: &str,
+) -> Result<Vec<Chapter>, reqwest::Error> {
     let html = client.get(series_url).send().await?.text().await?;
 
-    log::debug!("FlameComics: Fetched {} bytes of HTML from {}", html.len(), series_url);
+    log::debug!(
+        "FlameComics: Fetched {} bytes of HTML from {}",
+        html.len(),
+        series_url
+    );
 
     let next_data = match extract_next_data(&html) {
         Ok(data) => data,
         Err(e) => {
-            log::error!("Failed to extract Next.js data from FlameComics series page: {}", e);
+            log::error!(
+                "Failed to extract Next.js data from FlameComics series page: {}",
+                e
+            );
             log::debug!("HTML preview: {}", &html[..html.len().min(500)]);
             return Ok(Vec::new());
         }
@@ -166,7 +184,10 @@ pub async fn get_chapters(client: &Client, series_url: &str) -> Result<Vec<Chapt
     let mut chapters = Vec::new();
 
     if let Some(chapter_data) = next_data.props.page_props.chapters {
-        log::debug!("FlameComics: Found {} chapters in pageProps", chapter_data.len());
+        log::debug!(
+            "FlameComics: Found {} chapters in pageProps",
+            chapter_data.len()
+        );
         for ch in chapter_data {
             // Build chapter URL
             let chapter_url = format!("{}/series/{}/{}", BASE_URL, ch.series_id, ch.chapter_id);
