@@ -1,4 +1,24 @@
-// Helper functions for the manga scraper API
+//! Helper functions for the manga scraper API
+//!
+//! This module provides utility functions used throughout the application:
+//! - Source parsing and identification
+//! - Title normalization and matching
+//! - XML generation for ComicInfo.xml
+//! - Chapter number extraction and comparison
+//!
+//! # Examples
+//!
+//! ```
+//! use rust_manga_scraper::helpers::{parse_source, normalize_title};
+//!
+//! // Parse source from string
+//! let source = parse_source("mangadex");
+//! assert!(source.is_some());
+//!
+//! // Normalize titles for comparison
+//! let normalized = normalize_title("One Piece");
+//! assert_eq!(normalized, "onepiece");
+//! ```
 
 use crate::models::Source;
 use std::collections::HashSet;
