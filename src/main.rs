@@ -2225,20 +2225,20 @@ async fn main() -> std::io::Result<()> {
                         let mut p = data_clone.metadata_progress.lock().unwrap();
                         *p = MetadataProgress { in_progress: true, started_at: Some(Utc::now().timestamp()), finished_at: None, current_phase: Some("mangabaka_sync".into()), total_pending: None, processed_in_phase: 0, ..Default::default() };
                     }
-                    let conn = match rusqlite::Connection::open("manga.db") { Ok(c)=>c, Err(e)=>{ error!("open db: {}", e); return; } };
-                    if let Ok(mut s) = conn.prepare("SELECT COUNT(1) FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = ''") { if let Ok(mut rows)=s.query([]) { if let Some(row_res)=rows.next().transpose(){ if let Ok(r)=row_res { let cnt: i64 = r.get(0).unwrap_or(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); } } } }
+                    let db_client = match data_clone.pool.get().await { Ok(c)=>c, Err(e)=>{ error!("get pool: {}", e); return; } };
+                    if let Ok(row) = db_client.query_one("SELECT COUNT(1) FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = ''", &[]).await { let cnt: i64 = row.get(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); }
                     let sql = if let Some(l)=limit { format!("SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = '' LIMIT {}", l) } else { "SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = ''".to_string() };
-                    let mut stmt = match conn.prepare(&sql) { Ok(s)=>s, Err(e)=>{ error!("stmt: {}", e); return; } };
-                    let rows_iter = match stmt.query_map([], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?))) { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
-                    let rows_vec: Vec<(String,String,String)> = rows_iter.filter_map(|r| r.ok()).collect();
-                    drop(stmt);
+                    let rows_vec = match db_client.query(&sql, &[]).await { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
                     let mut updated = 0usize;
-                    for (manga_id,title,alts) in rows_vec {
+                    for row in rows_vec {
+                        let manga_id: String = row.get(0);
+                        let title: String = row.get(1);
+                        let alts: String = row.get(2);
                         // cancel?
                         if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::mangabaka::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(pid)) => {
-                            let _ = conn.execute("UPDATE manga SET mangabaka_id=?1 WHERE id=?2", rusqlite::params![pid, manga_id]);
-                            let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'mangabaka',?2)", rusqlite::params![manga_id, pid]);
+                            let _ = db_client.execute("UPDATE manga SET mangabaka_id = $1 WHERE id = $2", &[&pid, &manga_id]).await;
+                            let _ = db_client.execute("INSERT INTO provider_ids (manga_id, provider, provider_id) VALUES ($1, 'mangabaka', $2) ON CONFLICT (manga_id, provider) DO UPDATE SET provider_id = EXCLUDED.provider_id", &[&manga_id, &pid]).await;
                             updated += 1;
                         }, _=>{} }
                         { let mut p = data_clone.metadata_progress.lock().unwrap(); p.processed_in_phase += 1; }
@@ -2260,24 +2260,26 @@ async fn main() -> std::io::Result<()> {
                         let mut p = data_clone.metadata_progress.lock().unwrap();
                         *p = MetadataProgress { in_progress: true, started_at: Some(Utc::now().timestamp()), finished_at: None, current_phase: Some("mal_sync".into()), total_pending: None, processed_in_phase: 0, ..Default::default() };
                     }
-                    // independent connection
-                    let conn = match rusqlite::Connection::open("manga.db") { Ok(c)=>c, Err(e)=>{ error!("open db: {}", e); return; } };
+                    // get connection from pool
+                    let db_client = match data_clone.pool.get().await { Ok(c)=>c, Err(e)=>{ error!("get pool: {}", e); return; } };
                     // set pending count
-                    if let Ok(mut s) = conn.prepare("SELECT COUNT(1) FROM manga WHERE mal_id IS NULL OR mal_id = 0") { if let Ok(mut rows)=s.query([]) { if let Some(row_res)=rows.next().transpose(){ if let Ok(r)=row_res { let cnt: i64 = r.get(0).unwrap_or(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); } } } }
+                    if let Ok(row) = db_client.query_one("SELECT COUNT(1) FROM manga WHERE mal_id IS NULL OR mal_id = 0", &[]).await { let cnt: i64 = row.get(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); }
                     // fetch rows
                     let sql = if let Some(l)=limit { format!("SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mal_id IS NULL OR mal_id = 0 LIMIT {}", l) } else { "SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mal_id IS NULL OR mal_id = 0".to_string() };
-                    let mut stmt = match conn.prepare(&sql) { Ok(s)=>s, Err(e)=>{ error!("stmt: {}", e); return; } };
-                    let rows = match stmt.query_map([], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?))) { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
+                    let rows_vec = match db_client.query(&sql, &[]).await { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
                     let mut updated = 0usize;
-                    for row in rows { if let Ok((manga_id,title,alts)) = row {
+                    for row in rows_vec {
+                        let manga_id: String = row.get(0);
+                        let title: String = row.get(1);
+                        let alts: String = row.get(2);
                         if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::mal::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(mid)) => {
-                            let _ = conn.execute("UPDATE manga SET mal_id=?1 WHERE id=?2", rusqlite::params![mid, manga_id]);
-                            let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'mal',?2)", rusqlite::params![manga_id, mid.to_string()]);
+                            let _ = db_client.execute("UPDATE manga SET mal_id = $1 WHERE id = $2", &[&mid, &manga_id]).await;
+                            let _ = db_client.execute("INSERT INTO provider_ids (manga_id, provider, provider_id) VALUES ($1, 'mal', $2) ON CONFLICT (manga_id, provider) DO UPDATE SET provider_id = $2", &[&manga_id, &mid.to_string()]).await;
                             updated += 1;
                         }, _=>{} }
                         { let mut p = data_clone.metadata_progress.lock().unwrap(); p.processed_in_phase += 1; }
-                    } }
+                    }
                     { let mut p = data_clone.metadata_progress.lock().unwrap(); p.mal_updated += updated; p.current_phase=None; p.finished_at=Some(Utc::now().timestamp()); p.in_progress=false; }
                 });
                 HttpResponse::Accepted().finish()
@@ -2291,21 +2293,23 @@ async fn main() -> std::io::Result<()> {
                         let mut p = data_clone.metadata_progress.lock().unwrap();
                         *p = MetadataProgress { in_progress: true, started_at: Some(Utc::now().timestamp()), finished_at: None, current_phase: Some("anilist_sync".into()), total_pending: None, processed_in_phase:0, ..Default::default() };
                     }
-                    let conn = match rusqlite::Connection::open("manga.db") { Ok(c)=>c, Err(e)=>{ error!("open db: {}", e); return; } };
-                    if let Ok(mut s) = conn.prepare("SELECT COUNT(1) FROM manga WHERE anilist_id IS NULL OR anilist_id = 0") { if let Ok(mut rows)=s.query([]) { if let Some(row_res)=rows.next().transpose(){ if let Ok(r)=row_res { let cnt: i64 = r.get(0).unwrap_or(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); } } } }
+                    let db_client = match data_clone.pool.get().await { Ok(c)=>c, Err(e)=>{ error!("get pool: {}", e); return; } };
+                    if let Ok(row) = db_client.query_one("SELECT COUNT(1) FROM manga WHERE anilist_id IS NULL OR anilist_id = 0", &[]).await { let cnt: i64 = row.get(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); }
                     let sql = if let Some(l)=limit { format!("SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE anilist_id IS NULL OR anilist_id = 0 LIMIT {}", l) } else { "SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE anilist_id IS NULL OR anilist_id = 0".to_string() };
-                    let mut stmt = match conn.prepare(&sql) { Ok(s)=>s, Err(e)=>{ error!("stmt: {}", e); return; } };
-                    let rows = match stmt.query_map([], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?))) { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
+                    let rows_vec = match db_client.query(&sql, &[]).await { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
                     let mut updated = 0usize;
-                    for row in rows { if let Ok((manga_id,title,alts)) = row {
+                    for row in rows_vec {
+                        let manga_id: String = row.get(0);
+                        let title: String = row.get(1);
+                        let alts: String = row.get(2);
                         if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::anilist::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(aid)) => {
-                            let _ = conn.execute("UPDATE manga SET anilist_id=?1 WHERE id=?2", rusqlite::params![aid, manga_id]);
-                            let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'anilist',?2)", rusqlite::params![manga_id, aid.to_string()]);
+                            let _ = db_client.execute("UPDATE manga SET anilist_id = $1 WHERE id = $2", &[&aid, &manga_id]).await;
+                            let _ = db_client.execute("INSERT INTO provider_ids (manga_id, provider, provider_id) VALUES ($1, 'anilist', $2) ON CONFLICT (manga_id, provider) DO UPDATE SET provider_id = $2", &[&manga_id, &aid.to_string()]).await;
                             updated += 1;
                         }, _=>{} }
                         { let mut p = data_clone.metadata_progress.lock().unwrap(); p.processed_in_phase += 1; }
-                    } }
+                    }
                     { let mut p = data_clone.metadata_progress.lock().unwrap(); p.anilist_updated += updated; p.current_phase=None; p.finished_at=Some(Utc::now().timestamp()); p.in_progress=false; }
                 });
                 HttpResponse::Accepted().finish()
@@ -2336,62 +2340,58 @@ async fn main() -> std::io::Result<()> {
                         *p = MetadataProgress { in_progress: true, started_at: Some(Utc::now().timestamp()), finished_at: None, current_phase: Some("mangabaka_sync".into()), total_pending: None, processed_in_phase: 0, ..Default::default() };
                     }
                     // estimate pending
-                    let conn = match rusqlite::Connection::open("manga.db") { Ok(c)=>c, Err(e)=>{ error!("open db: {}", e); return; } };
-                    if let Ok(mut s) = conn.prepare("SELECT COUNT(1) FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = ''") { if let Ok(mut rows)=s.query([]) { if let Some(row_res)=rows.next().transpose(){ if let Ok(r)=row_res { let cnt: i64 = r.get(0).unwrap_or(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); } } } }
+                    let db_client = match data_clone.pool.get().await { Ok(c)=>c, Err(e)=>{ error!("get pool: {}", e); return; } };
+                    if let Ok(row) = db_client.query_one("SELECT COUNT(1) FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = ''", &[]).await { let cnt: i64 = row.get(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); }
                     let sql = if let Some(l)=limit { format!("SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = '' LIMIT {}", l) } else { "SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = ''".to_string() };
-                    let mut stmt = match conn.prepare(&sql) { Ok(s)=>s, Err(e)=>{ error!("stmt: {}", e); return; } };
-                    let rows_iter = match stmt.query_map([], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?))) { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
-                    let rows_vec: Vec<(String,String,String)> = rows_iter.filter_map(|r| r.ok()).collect();
-                    drop(stmt);
+                    let rows_vec = match db_client.query(&sql, &[]).await { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
                     let mut updated_baka = 0usize;
-                    for (manga_id,title,alts) in rows_vec {
+                    for row in rows_vec {
+                        let manga_id: String = row.get(0);
+                        let title: String = row.get(1);
+                        let alts: String = row.get(2);
                         if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::mangabaka::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(pid)) => {
-                            let _ = conn.execute("UPDATE manga SET mangabaka_id=?1 WHERE id=?2", rusqlite::params![pid, manga_id]);
-                            let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'mangabaka',?2)", rusqlite::params![manga_id, pid]);
+                            let _ = db_client.execute("UPDATE manga SET mangabaka_id = $1 WHERE id = $2", &[&pid, &manga_id]).await;
+                            let _ = db_client.execute("INSERT INTO provider_ids (manga_id, provider, provider_id) VALUES ($1, 'mangabaka', $2) ON CONFLICT (manga_id, provider) DO UPDATE SET provider_id = EXCLUDED.provider_id", &[&manga_id, &pid]).await;
                             updated_baka += 1;
                         }, _=>{} }
                         { let mut p = data_clone.metadata_progress.lock().unwrap(); p.processed_in_phase += 1; }
                     }
                     { let mut p = data_clone.metadata_progress.lock().unwrap(); p.mangabaka_updated += updated_baka; }
-                    drop(conn);
                     // step 2: mal
-                    let conn = match rusqlite::Connection::open("manga.db") { Ok(c)=>c, Err(e)=>{ error!("open db: {}", e); return; } };
                     { let mut p = data_clone.metadata_progress.lock().unwrap(); p.current_phase = Some("mal_sync".into()); p.total_pending=None; p.processed_in_phase=0; }
-                    if let Ok(mut s) = conn.prepare("SELECT COUNT(1) FROM manga WHERE mal_id IS NULL OR mal_id = 0") { if let Ok(mut rows)=s.query([]) { if let Some(row_res)=rows.next().transpose(){ if let Ok(r)=row_res { let cnt: i64 = r.get(0).unwrap_or(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); } } } }
+                    if let Ok(row) = db_client.query_one("SELECT COUNT(1) FROM manga WHERE mal_id IS NULL OR mal_id = 0", &[]).await { let cnt: i64 = row.get(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); }
                     // chunked MAL
                     let sql = if let Some(l)=limit { format!("SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mal_id IS NULL OR mal_id = 0 LIMIT {}", l) } else { "SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mal_id IS NULL OR mal_id = 0".to_string() };
-                    let mut stmt = match conn.prepare(&sql) { Ok(s)=>s, Err(e)=>{ error!("stmt: {}", e); return; } };
-                    let rows_iter = match stmt.query_map([], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?))) { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
-                    let rows_vec: Vec<(String,String,String)> = rows_iter.filter_map(|r| r.ok()).collect();
-                    drop(stmt);
+                    let rows_vec = match db_client.query(&sql, &[]).await { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
                     let mut updated_mal = 0usize;
-                    for (manga_id,title,alts) in rows_vec {
+                    for row in rows_vec {
+                        let manga_id: String = row.get(0);
+                        let title: String = row.get(1);
+                        let alts: String = row.get(2);
                         if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::mal::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(mid)) => {
-                            let _ = conn.execute("UPDATE manga SET mal_id=?1 WHERE id=?2", rusqlite::params![mid, manga_id]);
-                            let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'mal',?2)", rusqlite::params![manga_id, mid.to_string()]);
+                            let _ = db_client.execute("UPDATE manga SET mal_id = $1 WHERE id = $2", &[&mid, &manga_id]).await;
+                            let _ = db_client.execute("INSERT INTO provider_ids (manga_id, provider, provider_id) VALUES ($1, 'mal', $2) ON CONFLICT (manga_id, provider) DO UPDATE SET provider_id = $2", &[&manga_id, &mid.to_string()]).await;
                             updated_mal += 1;
                         }, _=>{} }
                         { let mut p = data_clone.metadata_progress.lock().unwrap(); p.processed_in_phase += 1; }
                     }
                     { let mut p = data_clone.metadata_progress.lock().unwrap(); p.mal_updated += updated_mal; }
-                    drop(conn);
                     // step 3: anilist
-                    let conn = match rusqlite::Connection::open("manga.db") { Ok(c)=>c, Err(e)=>{ error!("open db: {}", e); return; } };
                     { let mut p = data_clone.metadata_progress.lock().unwrap(); p.current_phase = Some("anilist_sync".into()); p.total_pending=None; p.processed_in_phase=0; }
-                    if let Ok(mut s) = conn.prepare("SELECT COUNT(1) FROM manga WHERE anilist_id IS NULL OR anilist_id = 0") { if let Ok(mut rows)=s.query([]) { if let Some(row_res)=rows.next().transpose(){ if let Ok(r)=row_res { let cnt: i64 = r.get(0).unwrap_or(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); } } } }
+                    if let Ok(row) = db_client.query_one("SELECT COUNT(1) FROM manga WHERE anilist_id IS NULL OR anilist_id = 0", &[]).await { let cnt: i64 = row.get(0); let mut p = data_clone.metadata_progress.lock().unwrap(); p.total_pending = Some(cnt); }
                     let sql = if let Some(l)=limit { format!("SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE anilist_id IS NULL OR anilist_id = 0 LIMIT {}", l) } else { "SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE anilist_id IS NULL OR anilist_id = 0".to_string() };
-                    let mut stmt = match conn.prepare(&sql) { Ok(s)=>s, Err(e)=>{ error!("stmt: {}", e); return; } };
-                    let rows_iter = match stmt.query_map([], |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?))) { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
-                    let rows_vec: Vec<(String,String,String)> = rows_iter.filter_map(|r| r.ok()).collect();
-                    drop(stmt);
+                    let rows_vec = match db_client.query(&sql, &[]).await { Ok(r)=>r, Err(e)=>{ error!("query: {}", e); return; } };
                     let mut updated_ani = 0usize;
-                    for (manga_id,title,alts) in rows_vec {
+                    for row in rows_vec {
+                        let manga_id: String = row.get(0);
+                        let title: String = row.get(1);
+                        let alts: String = row.get(2);
                         if *data_clone.metadata_cancel.lock().unwrap() { let mut p = data_clone.metadata_progress.lock().unwrap(); p.error=Some("cancelled".into()); p.in_progress=false; return; }
                         match crate::metadata::anilist::resolve_id(&data_clone.client, &title, &alts).await { Ok(Some(aid)) => {
-                            let _ = conn.execute("UPDATE manga SET anilist_id=?1 WHERE id=?2", rusqlite::params![aid, manga_id]);
-                            let _ = conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'anilist',?2)", rusqlite::params![manga_id, aid.to_string()]);
+                            let _ = db_client.execute("UPDATE manga SET anilist_id = $1 WHERE id = $2", &[&aid, &manga_id]).await;
+                            let _ = db_client.execute("INSERT INTO provider_ids (manga_id, provider, provider_id) VALUES ($1, 'anilist', $2) ON CONFLICT (manga_id, provider) DO UPDATE SET provider_id = $2", &[&manga_id, &aid.to_string()]).await;
                             updated_ani += 1;
                         }, _=>{} }
                         { let mut p = data_clone.metadata_progress.lock().unwrap(); p.processed_in_phase += 1; }
