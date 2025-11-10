@@ -43,12 +43,13 @@ pub mod kodoku_studio;
 pub mod lunatoons;
 pub mod lunatoons_browser;
 pub mod vast_visual;
+pub mod vastvisual_browser;
 
 // Free web platforms
 pub mod tapas;
 pub mod webtoon;
 pub mod webtoon_browser;
-// pub mod tapas_browser;  // File not implemented yet
+pub mod tapas_browser;
 pub mod medibang;
 pub mod webcomics;
 

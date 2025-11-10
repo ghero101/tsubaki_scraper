@@ -73,6 +73,9 @@ pub mod cloudflare_bypass;
 // Database layer
 pub mod db;
 
+// PostgreSQL database layer
+pub mod pg_db;
+
 // Crawler for discovering manga
 pub mod crawler;
 

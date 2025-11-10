@@ -9,10 +9,10 @@
 //! - `AppState`: Main application state with database connection, clients, and configuration
 //! - `MetadataProgress`: Progress tracking for metadata synchronization operations
 
+use deadpool_postgres::Pool;
 use reqwest::Client;
-use rusqlite::Connection;
 use serde::Serialize;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 /// Progress tracking for metadata synchronization operations
 #[derive(Debug, Default, Serialize, Clone)]
@@ -48,8 +48,8 @@ pub struct MetadataProgress {
 /// This struct is wrapped in `web::Data` and shared across all HTTP request handlers.
 /// All mutable state is protected by `Mutex` for thread-safety.
 pub struct AppState {
-    /// SQLite database connection (thread-safe via Mutex)
-    pub db: Mutex<Connection>,
+    /// PostgreSQL database connection pool (inherently thread-safe)
+    pub pool: Pool,
     /// Standard reqwest HTTP client
     pub client: Client,
     /// Enhanced HTTP client with bot detection bypass
@@ -64,4 +64,6 @@ pub struct AppState {
     pub metadata_progress: Mutex<MetadataProgress>,
     /// Flag to cancel ongoing metadata sync
     pub metadata_cancel: Mutex<bool>,
+    /// Browser manager for Cloudflare-protected sources (optional)
+    pub browser_manager: Option<Arc<crate::browser::BrowserManager>>,
 }

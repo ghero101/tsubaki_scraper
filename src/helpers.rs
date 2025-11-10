@@ -77,6 +77,16 @@ pub fn wp_manga_source_by_name(name: &str) -> Option<(i32, &'static str)> {
         "grimscans" => Some((19, "https://grimscans.team")),
         "hivetoons" => Some((20, "https://hivetoons.com")),
         "nyxscans" => Some((34, "https://nyxscans.com")),
+        // Free scanlation sites
+        "flamecomics" | "flame-comics" => Some((18, "https://flamecomics.xyz")),
+        "daycomics" | "day-comics" => Some((16, "https://daycomics.com")),
+        "kodokustudio" | "kodoku-studio" => Some((27, "https://kodokustudio.com")),
+        "lunatoons" | "luna-toons" => Some((29, "https://lunatoons.com")),
+        "vastvisual" | "vast-visual" => Some((54, "https://vastvisual.com")),
+        "mavintranslations" | "mavin-translations" => Some((61, "https://mavintranslations.com")),
+        // Free web platforms
+        "tapas" => Some((47, "https://tapas.io")),
+        "webtoon" | "webtoons" => Some((58, "https://www.webtoons.com")),
         _ => None,
     }
 }

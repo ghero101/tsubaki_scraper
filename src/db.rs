@@ -91,6 +91,7 @@ pub fn seed_sources(conn: &Connection) -> Result<()> {
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (58, 'Webtoon', 'https://www.webtoons.com')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (59, 'Witch Scans', 'https://witchscans.com')", [])?;
     conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (60, 'Yen Press', 'https://yenpress.com')", [])?;
+    conn.execute("INSERT OR IGNORE INTO sources (id, name, url) VALUES (61, 'Mavin Translations', 'https://mavintranslations.com')", [])?;
 
     log::info!("Sources seeded successfully.");
     Ok(())

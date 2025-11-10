@@ -1,5 +1,5 @@
 use reqwest::Client;
-use rusqlite::Connection;
+use deadpool_postgres::Pool;
 use serde_json::Value;
 use std::error::Error;
 
@@ -45,27 +45,30 @@ pub async fn resolve_id(
 }
 
 #[allow(dead_code)]
-pub async fn sync_all(conn: &Connection, client: &Client) -> Result<usize, Box<dyn Error>> {
+pub async fn sync_all(pool: &Pool, client: &Client) -> Result<usize, Box<dyn Error>> {
+    let db_client = pool.get().await.expect("Failed to get connection from pool");
+
     // Find manga missing mal_id
-    let mut stmt = conn.prepare(
+    let rows = db_client.query(
         "SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mal_id IS NULL OR mal_id = 0",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })?;
+        &[],
+    ).await?;
+
     let mut updated = 0usize;
     for row in rows {
-        let (manga_id, title, alts) = row?;
+        let manga_id: String = row.get(0);
+        let title: String = row.get(1);
+        let alts: String = row.get(2);
+
         if let Some(mal_id) = resolve_id(client, &title, &alts).await? {
-            conn.execute(
-                "UPDATE manga SET mal_id = ?1 WHERE id = ?2",
-                rusqlite::params![mal_id, manga_id],
-            )?;
-            conn.execute("INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1,'mal',?2)", rusqlite::params![manga_id, mal_id.to_string()])?;
+            db_client.execute(
+                "UPDATE manga SET mal_id = $1 WHERE id = $2",
+                &[&mal_id, &manga_id],
+            ).await?;
+            db_client.execute(
+                "INSERT INTO provider_ids (manga_id, provider, provider_id) VALUES ($1, 'mal', $2) ON CONFLICT (manga_id, provider) DO UPDATE SET provider_id = $2",
+                &[&manga_id, &mal_id.to_string()],
+            ).await?;
             updated += 1;
         }
     }

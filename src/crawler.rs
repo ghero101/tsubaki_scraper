@@ -1,6 +1,6 @@
 use crate::{
     app_state::AppState,
-    db,
+    pg_db,
     models::{Chapter, Manga, MangaSourceData, Source},
 };
 use actix_web::web;
@@ -56,20 +56,7 @@ pub fn spawn_full_crawl_with_filters(
             };
         }
         let client = &data_clone.client;
-        let mut conn = match data_clone.db.lock() {
-            Ok(c) => c,
-            Err(_) => {
-                error!("DB lock failed");
-                return;
-            }
-        };
-        let tx = match conn.transaction() {
-            Ok(t) => t,
-            Err(e) => {
-                error!("tx error: {}", e);
-                return;
-            }
-        };
+        let pool = &data_clone.pool;
 
         let mut manga_map: HashMap<String, Manga> = HashMap::new();
         let mut msd_map: HashMap<String, Vec<MangaSourceData>> = HashMap::new();
@@ -714,12 +701,12 @@ pub fn spawn_full_crawl_with_filters(
         }
 
         for (key, m) in manga_map.iter() {
-            if let Err(e) = db::insert_manga(&tx, m) {
+            if let Err(e) = pg_db::insert_manga(pool, m).await {
                 error!("insert manga {}: {}", m.title, e);
             }
             if let Some(msds) = msd_map.get(key) {
                 for msd in msds {
-                    let msd_id = match db::insert_manga_source_data(&tx, msd) {
+                    let msd_id = match pg_db::insert_manga_source_data(pool, msd).await {
                         Ok(id) => id,
                         Err(e) => {
                             error!("insert msd: {}", e);
@@ -947,14 +934,11 @@ pub fn spawn_full_crawl_with_filters(
                             _ => Vec::new(),
                         }
                     };
-                    let _ = db::insert_chapters(&tx, msd_id, &chapters);
+                    let _ = pg_db::insert_chapters(pool, msd_id, &chapters).await;
                 }
             }
         }
 
-        if let Err(e) = tx.commit() {
-            error!("commit error: {}", e);
-        }
         info!("Full crawl finished.");
         {
             let mut p = data_clone.crawl_progress.lock().unwrap();

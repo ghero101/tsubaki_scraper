@@ -4,6 +4,7 @@ mod cloudflare_bypass;
 mod config;
 mod crawler;
 mod db;
+mod pg_db;
 mod helpers;
 mod metadata;
 mod metrics;
@@ -38,7 +39,6 @@ use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use log::{error, info};
 use regex::Regex;
 use reqwest::Client;
-use rusqlite::Connection;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
@@ -48,7 +48,6 @@ use uuid::Uuid;
 async fn import(data: web::Data<AppState>) -> impl Responder {
     info!("Starting import process...");
     let client = &data.client;
-    let mut conn = data.db.lock().unwrap();
 
     let mut manga_map: HashMap<String, Manga> = HashMap::new();
     let mut manga_source_data_map: HashMap<String, Vec<MangaSourceData>> = HashMap::new();
@@ -366,14 +365,6 @@ async fn import(data: web::Data<AppState>) -> impl Responder {
     }
     info!("Finished processing KDT Novels.");
 
-    let tx = match conn.transaction() {
-        Ok(tx) => tx,
-        Err(e) => {
-            error!("Failed to start transaction: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
     // Insert/Update merged manga and their source data and chapters into the database
     info!("Inserting data into the database...");
     info!("Total manga entries to insert: {}", manga_map.len());
@@ -382,7 +373,7 @@ async fn import(data: web::Data<AppState>) -> impl Responder {
             "Inserting manga - ID: {}, Title: {}, Normalized: {}",
             manga.id, manga.title, normalized_title
         );
-        if let Err(e) = db::insert_manga(&tx, &manga) {
+        if let Err(e) = pg_db::insert_manga(&data.pool, &manga).await {
             error!("Failed to insert manga: {}", e);
             continue;
         }
@@ -402,7 +393,7 @@ async fn import(data: web::Data<AppState>) -> impl Responder {
                     manga_source_data.source_manga_id
                 );
                 let manga_source_data_id =
-                    match db::insert_manga_source_data(&tx, &manga_source_data) {
+                    match pg_db::insert_manga_source_data(&data.pool, &manga_source_data).await {
                         Ok(id) => id,
                         Err(e) => {
                             error!("Failed to insert manga source data: {}", e);
@@ -486,16 +477,11 @@ async fn import(data: web::Data<AppState>) -> impl Responder {
                 };
 
                 info!("Found {} chapters, inserting into database", chapters.len());
-                if let Err(e) = db::insert_chapters(&tx, manga_source_data_id, &chapters) {
+                if let Err(e) = pg_db::insert_chapters(&data.pool, manga_source_data_id, &chapters).await {
                     error!("Failed to insert chapters: {}", e);
                 }
             }
         }
-    }
-
-    if let Err(e) = tx.commit() {
-        error!("Failed to commit transaction: {}", e);
-        return HttpResponse::InternalServerError().finish();
     }
 
     info!("Finished inserting data into the database.");
@@ -520,7 +506,6 @@ async fn import_source_endpoint(
         return HttpResponse::BadRequest().json(serde_json::json!({"error":"unknown source"}));
     }
     let client = &data.client;
-    let mut conn = data.db.lock().unwrap();
 
     let mut manga_map: HashMap<String, Manga> = HashMap::new();
     let mut manga_source_data_map: HashMap<String, Vec<MangaSourceData>> = HashMap::new();
@@ -765,6 +750,44 @@ async fn import_source_endpoint(
             "nyxscans" => crate::sources::nyxscans::search_manga_with_urls(client, "")
                 .await
                 .map(|items| (34, items)),
+            // Free scanlation sites
+            "flamecomics" | "flame-comics" => {
+                crate::sources::flamecomics::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (18, items))
+            }
+            "daycomics" | "day-comics" => {
+                crate::sources::daycomics::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (16, items))
+            }
+            "kodokustudio" | "kodoku-studio" => {
+                crate::sources::kodoku_studio::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (27, items))
+            }
+            "lunatoons" | "luna-toons" => {
+                crate::sources::lunatoons::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (29, items))
+            }
+            "vastvisual" | "vast-visual" => {
+                crate::sources::vast_visual::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (54, items))
+            }
+            "mavintranslations" | "mavin-translations" => {
+                crate::sources::mavintranslations::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (61, items))
+            }
+            // Free web platforms
+            "tapas" => crate::sources::tapas::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (47, items)),
+            "webtoon" | "webtoons" => crate::sources::webtoon::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (58, items)),
             _ => crate::sources::wp_manga::search_manga_with_urls_base(client, base)
                 .await
                 .map(|items| (sid, items)),
@@ -788,22 +811,14 @@ async fn import_source_endpoint(
         }
     }
 
-    let tx = match conn.transaction() {
-        Ok(t) => t,
-        Err(e) => {
-            error!("tx error: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
     // Insert
     for (key, m) in manga_map.iter() {
-        if let Err(e) = db::insert_manga(&tx, m) {
+        if let Err(e) = pg_db::insert_manga(&data.pool, m).await {
             error!("insert manga {}: {}", m.title, e);
         }
         if let Some(msds) = manga_source_data_map.get(key) {
             for msd in msds {
-                let msd_id = match db::insert_manga_source_data(&tx, msd) {
+                let msd_id = match pg_db::insert_manga_source_data(&data.pool, msd).await {
                     Ok(id) => id,
                     Err(e) => {
                         error!("insert msd: {}", e);
@@ -987,13 +1002,9 @@ async fn import_source_endpoint(
                     }
                     _ => Vec::new(),
                 };
-                let _ = db::insert_chapters(&tx, msd_id, &chapters);
+                let _ = pg_db::insert_chapters(&data.pool, msd_id, &chapters).await;
             }
         }
-    }
-    if let Err(e) = tx.commit() {
-        error!("commit error: {}", e);
-        return HttpResponse::InternalServerError().finish();
     }
 
     HttpResponse::Ok()
@@ -1015,7 +1026,6 @@ async fn import_source_manga_only(
         return HttpResponse::BadRequest().json(serde_json::json!({"error":"unknown source"}));
     }
     let client = &data.client;
-    let mut conn = data.db.lock().unwrap();
 
     let mut manga_map: HashMap<String, Manga> = HashMap::new();
     let mut manga_source_data_map: HashMap<String, Vec<MangaSourceData>> = HashMap::new();
@@ -1248,6 +1258,44 @@ async fn import_source_manga_only(
             "nyxscans" => crate::sources::nyxscans::search_manga_with_urls(client, "")
                 .await
                 .map(|items| (34, items)),
+            // Free scanlation sites
+            "flamecomics" | "flame-comics" => {
+                crate::sources::flamecomics::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (18, items))
+            }
+            "daycomics" | "day-comics" => {
+                crate::sources::daycomics::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (16, items))
+            }
+            "kodokustudio" | "kodoku-studio" => {
+                crate::sources::kodoku_studio::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (27, items))
+            }
+            "lunatoons" | "luna-toons" => {
+                crate::sources::lunatoons::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (29, items))
+            }
+            "vastvisual" | "vast-visual" => {
+                crate::sources::vast_visual::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (54, items))
+            }
+            "mavintranslations" | "mavin-translations" => {
+                crate::sources::mavintranslations::search_manga_with_urls(client, "")
+                    .await
+                    .map(|items| (61, items))
+            }
+            // Free web platforms
+            "tapas" => crate::sources::tapas::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (47, items)),
+            "webtoon" | "webtoons" => crate::sources::webtoon::search_manga_with_urls(client, "")
+                .await
+                .map(|items| (58, items)),
             _ => crate::sources::wp_manga::search_manga_with_urls_base(client, base)
                 .await
                 .map(|items| (sid, items)),
@@ -1272,24 +1320,13 @@ async fn import_source_manga_only(
         return res.unwrap_err();
     }
 
-    let tx = match conn.transaction() {
-        Ok(t) => t,
-        Err(e) => {
-            error!("tx error: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
     for (key, m) in manga_map.iter() {
-        let _ = db::insert_manga(&tx, m);
+        let _ = pg_db::insert_manga(&data.pool, m).await;
         if let Some(msds) = manga_source_data_map.get(key) {
             for msd in msds {
-                let _ = db::insert_manga_source_data(&tx, msd);
+                let _ = pg_db::insert_manga_source_data(&data.pool, msd).await;
             }
         }
-    }
-    if let Err(e) = tx.commit() {
-        error!("commit error: {}", e);
-        return HttpResponse::InternalServerError().finish();
     }
 
     HttpResponse::Ok().json(
@@ -1301,8 +1338,6 @@ async fn list_manga(
     data: web::Data<AppState>,
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> impl Responder {
-    let conn = data.db.lock().unwrap();
-
     // Parse pagination parameters
     let limit = query
         .get("limit")
@@ -1317,17 +1352,17 @@ async fn list_manga(
 
     let (manga_list, total) = if let Some(search) = query.get("search") {
         let tags = query.get("tags").map(|t| t.as_str());
-        match db::search_manga_paginated(
-            &conn,
+        match pg_db::search_manga_paginated(
+            &data.pool,
             search,
             tags,
             rating,
             Some(limit),
             Some(offset),
             sort_by,
-        ) {
+        ).await {
             Ok(list) => {
-                let total = match db::get_manga_count(&conn) {
+                let total = match pg_db::get_manga_count(&data.pool).await {
                     Ok(c) => c,
                     Err(e) => {
                         error!("Failed to get manga count: {}", e);
@@ -1344,9 +1379,9 @@ async fn list_manga(
             }
         }
     } else {
-        match db::get_manga_paginated(&conn, Some(limit), Some(offset), sort_by, rating) {
+        match pg_db::get_manga_paginated(&data.pool, Some(limit), Some(offset), sort_by, rating).await {
             Ok(list) => {
-                let total = match db::get_manga_count(&conn) {
+                let total = match pg_db::get_manga_count(&data.pool).await {
                     Ok(c) => c,
                     Err(e) => {
                         error!("Failed to get manga count: {}", e);
@@ -1367,10 +1402,10 @@ async fn list_manga(
     let response = PaginatedResponse {
         data: manga_list,
         pagination: PaginationInfo {
-            total,
+            total: total as i32,
             limit,
             offset,
-            has_more: offset + limit < total,
+            has_more: offset + limit < (total as i32),
         },
     };
 
@@ -1379,9 +1414,7 @@ async fn list_manga(
 
 #[get("/manga/{id}")]
 async fn get_manga(data: web::Data<AppState>, id: web::Path<String>) -> impl Responder {
-    let conn = data.db.lock().unwrap();
-
-    let manga = match db::get_manga_by_id(&conn, &id) {
+    let manga = match pg_db::get_manga_by_id(&data.pool, &id).await {
         Ok(Some(m)) => m,
         Ok(None) => {
             return HttpResponse::NotFound().json(serde_json::json!({"error": "Manga not found"}))
@@ -1394,7 +1427,7 @@ async fn get_manga(data: web::Data<AppState>, id: web::Path<String>) -> impl Res
     };
 
     // Get source data
-    let source_data_list = match db::get_manga_source_data_by_manga_id(&conn, &id) {
+    let source_data_list = match pg_db::get_manga_source_data_by_manga_id(&data.pool, &id).await {
         Ok(list) => list,
         Err(e) => {
             error!("Database error fetching source data: {}", e);
@@ -1406,7 +1439,7 @@ async fn get_manga(data: web::Data<AppState>, id: web::Path<String>) -> impl Res
     // Build sources with names
     let mut sources = Vec::new();
     for source_data in source_data_list {
-        let source_name = match db::get_source_name(&conn, source_data.source_id) {
+        let source_name = match pg_db::get_source_name(&data.pool, source_data.source_id).await {
             Ok(name) => name,
             Err(_) => format!("Source {}", source_data.source_id),
         };
@@ -1438,22 +1471,19 @@ async fn monitor_manga(
     id: web::Path<String>,
     body: web::Json<crate::models::MonitorRequest>,
 ) -> impl Responder {
-    let conn = data.db.lock().unwrap();
-    let _ = db::set_manga_monitoring(
-        &conn,
+    let _ = pg_db::set_manga_monitoring(
+        &data.pool,
         &id,
         body.monitored,
         body.check_interval_secs,
         body.discover_interval_secs,
-    );
+    ).await;
     HttpResponse::Ok().finish()
 }
 
 #[get("/manga/{id}/chapters")]
 async fn get_chapters(data: web::Data<AppState>, id: web::Path<String>) -> impl Responder {
-    let conn = data.db.lock().unwrap();
-
-    let manga_source_data_list = match db::get_manga_source_data_by_manga_id(&conn, &id) {
+    let manga_source_data_list = match pg_db::get_manga_source_data_by_manga_id(&data.pool, &id).await {
         Ok(list) => list,
         Err(e) => {
             error!("Database error fetching source data: {}", e);
@@ -1469,16 +1499,16 @@ async fn get_chapters(data: web::Data<AppState>, id: web::Path<String>) -> impl 
 
     let mut all_chapters = Vec::new();
     for manga_source_data in manga_source_data_list {
-        let source_name = match db::get_source_name(&conn, manga_source_data.source_id) {
+        let source_name = match pg_db::get_source_name(&data.pool, manga_source_data.source_id).await {
             Ok(name) => name,
             Err(_) => format!("Source {}", manga_source_data.source_id),
         };
 
-        match db::get_chapters_by_manga_source_data_id(
-            &conn,
+        match pg_db::get_chapters_by_manga_source_data_id(
+            &data.pool,
             &manga_source_data.manga_id,
             manga_source_data.source_id,
-        ) {
+        ).await {
             Ok(chapters) => {
                 for chapter in chapters {
                     all_chapters.push(ChapterWithSource {
@@ -1507,10 +1537,9 @@ async fn download(
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> impl Responder {
     let (manga_id, chapter_number) = path.into_inner();
-    let conn = data.db.lock().unwrap();
     let stream = query.get("stream").map(|s| s == "true").unwrap_or(false);
 
-    let manga_source_data_list = match db::get_manga_source_data_by_manga_id(&conn, &manga_id) {
+    let manga_source_data_list = match pg_db::get_manga_source_data_by_manga_id(&data.pool, &manga_id).await {
         Ok(list) => list,
         Err(_) => {
             return HttpResponse::InternalServerError()
@@ -1520,11 +1549,11 @@ async fn download(
 
     if manga_source_data_list.len() == 1 {
         let source_data = &manga_source_data_list[0];
-        let chapters = match db::get_chapters_by_manga_source_data_id(
-            &conn,
+        let chapters = match pg_db::get_chapters_by_manga_source_data_id(
+            &data.pool,
             &source_data.manga_id,
             source_data.source_id,
-        ) {
+        ).await {
             Ok(c) => c,
             Err(_) => {
                 return HttpResponse::InternalServerError()
@@ -1544,7 +1573,7 @@ async fn download(
                 .await
                 {
                     Ok(bytes) => {
-                        let manga = match db::get_manga_by_id(&conn, &manga_id) {
+                        let manga = match pg_db::get_manga_by_id(&data.pool, &manga_id).await {
                             Ok(Some(m)) => m,
                             _ => return HttpResponse::InternalServerError().finish(),
                         };
@@ -1565,7 +1594,7 @@ async fn download(
                 }
             } else {
                 // Save to disk
-                let manga = match db::get_manga_by_id(&conn, &manga_id) {
+                let manga = match pg_db::get_manga_by_id(&data.pool, &manga_id).await {
                     Ok(Some(m)) => m,
                     _ => return HttpResponse::InternalServerError().finish(),
                 };
@@ -1626,8 +1655,7 @@ async fn download_by_url(
         .and_then(|s| s.parse::<i32>().ok())
         .or_else(|| guess_source_id_from_url(url));
 
-    let conn = data.db.lock().unwrap();
-    let source_data_list = match db::get_manga_source_data_by_manga_id(&conn, manga_id) {
+    let source_data_list = match pg_db::get_manga_source_data_by_manga_id(&data.pool, manga_id).await {
         Ok(list) => list,
         Err(_) => {
             return HttpResponse::InternalServerError()
@@ -1668,7 +1696,7 @@ async fn download_by_url(
             }
         }
     } else {
-        let manga = match db::get_manga_by_id(&conn, manga_id) {
+        let manga = match pg_db::get_manga_by_id(&data.pool, manga_id).await {
             Ok(Some(m)) => m,
             _ => return HttpResponse::InternalServerError().finish(),
         };
@@ -1712,9 +1740,7 @@ async fn download_by_url(
 
 #[get("/sources")]
 async fn get_sources(data: web::Data<AppState>) -> impl Responder {
-    let conn = data.db.lock().unwrap();
-
-    match db::get_per_source_counts(&conn) {
+    match pg_db::get_per_source_counts(&data.pool).await {
         Ok(sources) => {
             let sources_with_chapters: Vec<_> =
                 sources.into_iter().filter(|s| s.chapters > 0).collect();
@@ -1730,10 +1756,9 @@ async fn get_sources(data: web::Data<AppState>) -> impl Responder {
 
 #[get("/sources/{source_id}/manga")]
 async fn get_source_manga(data: web::Data<AppState>, source_id: web::Path<i32>) -> impl Responder {
-    let conn = data.db.lock().unwrap();
     let source_id = source_id.into_inner();
 
-    match db::get_manga_by_source(&conn, source_id) {
+    match pg_db::get_manga_by_source(&data.pool, source_id).await {
         Ok(manga_list) => HttpResponse::Ok().json(manga_list),
         Err(e) => {
             error!("Failed to get manga for source {}: {}", source_id, e);
@@ -1745,9 +1770,7 @@ async fn get_source_manga(data: web::Data<AppState>, source_id: web::Path<i32>) 
 
 #[get("/stats")]
 async fn get_stats(data: web::Data<AppState>) -> impl Responder {
-    let conn = data.db.lock().unwrap();
-
-    let total_manga = match db::get_manga_count(&conn) {
+    let total_manga = match pg_db::get_manga_count(&data.pool).await {
         Ok(count) => count,
         Err(e) => {
             error!("Failed to get manga count: {}", e);
@@ -1756,7 +1779,7 @@ async fn get_stats(data: web::Data<AppState>) -> impl Responder {
         }
     };
 
-    let total_chapters = match db::get_chapter_count(&conn) {
+    let total_chapters = match pg_db::get_chapter_count(&data.pool).await {
         Ok(count) => count,
         Err(e) => {
             error!("Failed to get chapter count: {}", e);
@@ -1765,7 +1788,7 @@ async fn get_stats(data: web::Data<AppState>) -> impl Responder {
         }
     };
 
-    let total_sources = match db::get_source_count(&conn) {
+    let total_sources = match pg_db::get_source_count(&data.pool).await {
         Ok(count) => count,
         Err(e) => {
             error!("Failed to get source count: {}", e);
@@ -1775,11 +1798,11 @@ async fn get_stats(data: web::Data<AppState>) -> impl Responder {
     };
 
     let stats = Stats {
-        total_manga,
-        total_chapters,
-        total_sources,
+        total_manga: total_manga as i32,
+        total_chapters: total_chapters as i32,
+        total_sources: total_sources as i32,
     };
-    let per_source = match db::get_per_source_counts(&conn) {
+    let per_source = match pg_db::get_per_source_counts(&data.pool).await {
         Ok(v) => v,
         Err(_) => Vec::new(),
     };
@@ -1870,10 +1893,9 @@ async fn download_from_source(
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> impl Responder {
     let (manga_id, chapter_number, source_id) = path.into_inner();
-    let conn = data.db.lock().unwrap();
     let stream = query.get("stream").map(|s| s == "true").unwrap_or(false);
 
-    let manga_source_data_list = match db::get_manga_source_data_by_manga_id(&conn, &manga_id) {
+    let manga_source_data_list = match pg_db::get_manga_source_data_by_manga_id(&data.pool, &manga_id).await {
         Ok(list) => list,
         Err(_) => {
             return HttpResponse::InternalServerError()
@@ -1885,11 +1907,11 @@ async fn download_from_source(
         .find(|s| s.source_id == source_id);
 
     if let Some(source_data) = source_data {
-        let chapters = match db::get_chapters_by_manga_source_data_id(
-            &conn,
+        let chapters = match pg_db::get_chapters_by_manga_source_data_id(
+            &data.pool,
             &source_data.manga_id,
             source_data.source_id,
-        ) {
+        ).await {
             Ok(c) => c,
             Err(_) => {
                 return HttpResponse::InternalServerError()
@@ -1909,7 +1931,7 @@ async fn download_from_source(
                 .await
                 {
                     Ok(bytes) => {
-                        let manga = match db::get_manga_by_id(&conn, &manga_id) {
+                        let manga = match pg_db::get_manga_by_id(&data.pool, &manga_id).await {
                             Ok(Some(m)) => m,
                             _ => return HttpResponse::InternalServerError().finish(),
                         };
@@ -1930,7 +1952,7 @@ async fn download_from_source(
                 }
             } else {
                 // Save to disk
-                let manga = match db::get_manga_by_id(&conn, &manga_id) {
+                let manga = match pg_db::get_manga_by_id(&data.pool, &manga_id).await {
                     Ok(Some(m)) => m,
                     _ => return HttpResponse::InternalServerError().finish(),
                 };
@@ -1970,8 +1992,7 @@ async fn download_from_source(
 async fn main() -> std::io::Result<()> {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
 
-    let conn = db::init_db().unwrap();
-    db::create_tables(&conn).unwrap();
+    let pool = crate::pg_db::create_pool();
 
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
@@ -1996,8 +2017,20 @@ async fn main() -> std::io::Result<()> {
     log::info!("  Timeout: {}s", cfg.bot_detection.timeout_secs);
     log::info!("  Browser enabled: {}", cfg.bot_detection.enable_browser);
 
+    // Initialize browser manager for Cloudflare-protected sources
+    let browser_manager = match crate::browser::BrowserManager::new(crate::browser::BrowserConfig::default()) {
+        Ok(manager) => {
+            log::info!("Browser automation initialized successfully");
+            Some(std::sync::Arc::new(manager))
+        }
+        Err(e) => {
+            log::warn!("Failed to initialize browser automation: {}. Cloudflare-protected sources will not work.", e);
+            None
+        }
+    };
+
     let data = web::Data::new(AppState {
-        db: Mutex::new(conn),
+        pool,
         client,
         _enhanced_client: enhanced_client,
         metrics,
@@ -2005,6 +2038,7 @@ async fn main() -> std::io::Result<()> {
         crawl_progress: Mutex::new(crawler::CrawlProgress::default()),
         metadata_progress: Mutex::new(MetadataProgress::default()),
         metadata_cancel: Mutex::new(false),
+        browser_manager,
     });
 
     // start background scheduler
@@ -2055,45 +2089,39 @@ async fn main() -> std::io::Result<()> {
                 let sname = source.to_lowercase();
                 if sname == "mangadex" {
                     let client = &data.client;
-                    let mut conn = data.db.lock().unwrap();
                     let mut manga_added = 0usize; let mut ch_added = 0usize;
-                    let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
                     let list = match crate::sources::mangadex::search_manga(client, "", crate::sources::mangadex::BASE_URL).await { Ok(v)=>v, Err(e)=>{ return HttpResponse::InternalServerError().json(json!({"error":format!("fetch failed: {}", e)})); } };
                     for m in list.into_iter().take(limit_manga) {
                         let mut mm = m.clone(); mm.id = uuid::Uuid::new_v4().to_string();
-                        let _ = db::insert_manga(&tx, &mm);
+                        let _ = pg_db::insert_manga(&data.pool, &mm).await;
                         let msd = MangaSourceData { manga_id: mm.id.clone(), source_id: Source::MangaDex as i32, source_manga_id: m.id.clone(), source_manga_url: format!("https://mangadex.org/title/{}", m.id) };
-                        let msd_id = match db::insert_manga_source_data(&tx, &msd) { Ok(id)=>id, Err(_)=>continue };
+                        let msd_id = match pg_db::insert_manga_source_data(&data.pool, &msd).await { Ok(id)=>id, Err(_)=>continue };
                         let chs = crate::sources::mangadex::get_chapters(client, &m.id).await.unwrap_or_default();
                         let chs_limited: Vec<_> = chs.into_iter().take(limit_ch).collect();
-                        let _ = db::insert_chapters(&tx, msd_id, &chs_limited);
+                        let _ = pg_db::insert_chapters(&data.pool, msd_id, &chs_limited).await;
                         manga_added += 1; ch_added += chs_limited.len();
                     }
-                    let _ = tx.commit();
                     return HttpResponse::Ok().json(json!({"source": source.to_string(), "manga_added": manga_added, "chapters_added": ch_added}));
                 }
                 if sname == "kagane" {
                     let client = &data.client;
-                    let mut conn = data.db.lock().unwrap();
                     let mut manga_added = 0usize; let mut ch_added = 0usize;
-                    let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
                     let list = match crate::sources::kagane::search_all_series_with_urls(client).await { Ok(v)=>v, Err(e)=>{ return HttpResponse::InternalServerError().json(json!({"error":format!("fetch failed: {}", e)})); } };
                     for (m,u) in list.into_iter().take(limit_manga) {
                         let mut mm = m.clone(); mm.id = uuid::Uuid::new_v4().to_string();
-                        let _ = db::insert_manga(&tx, &mm);
+                        let _ = pg_db::insert_manga(&data.pool, &mm).await;
                         let msd = MangaSourceData { manga_id: mm.id.clone(), source_id: Source::Kagane as i32, source_manga_id: u.clone(), source_manga_url: u.clone() };
-                        let msd_id = match db::insert_manga_source_data(&tx, &msd) { Ok(id)=>id, Err(_)=>continue };
+                        let msd_id = match pg_db::insert_manga_source_data(&data.pool, &msd).await { Ok(id)=>id, Err(_)=>continue };
                         let chs = crate::sources::kagane::get_chapters(client, &msd.source_manga_url).await.unwrap_or_default();
                         let chs_limited: Vec<_> = chs.into_iter().take(limit_ch).collect();
-                        let _ = db::insert_chapters(&tx, msd_id, &chs_limited);
+                        let _ = pg_db::insert_chapters(&data.pool, msd_id, &chs_limited).await;
                         // Also capture external provider links and add as additional sources (no chapters here to keep quick)
                         for (sid, link) in crate::sources::kagane::extract_provider_links(client, &u).await.into_iter().take(10) {
                             let extra = MangaSourceData { manga_id: mm.id.clone(), source_id: sid, source_manga_id: link.clone(), source_manga_url: link };
-                            let _ = db::insert_manga_source_data(&tx, &extra);
+                            let _ = pg_db::insert_manga_source_data(&data.pool, &extra).await;
                         }
                         manga_added += 1; ch_added += chs_limited.len();
                     }
-                    let _ = tx.commit();
                     return HttpResponse::Ok().json(json!({"source": source.to_string(), "manga_added": manga_added, "chapters_added": ch_added}));
                 }
 
@@ -2102,10 +2130,8 @@ async fn main() -> std::io::Result<()> {
                 if base.is_none() { return HttpResponse::BadRequest().json(json!({"error":"unknown or non-wp source"})); }
                 let base = base.unwrap();
                 let client = &data.client;
-                let mut conn = data.db.lock().unwrap();
                 let mut manga_added = 0usize;
                 let mut ch_added = 0usize;
-                let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
                 // Choose per-source first-page + chapters strategy
                 let items: Vec<(Manga,String)> = match sname.as_str() {
                     "firescans" => match crate::sources::firescans::search_manga_first_page(client).await { Ok(v)=>v, Err(e)=>{ return HttpResponse::InternalServerError().json(json!({"error":format!("fetch failed: {}", e)})); } },
@@ -2114,20 +2140,19 @@ async fn main() -> std::io::Result<()> {
                 };
                 for (m,u) in items.into_iter().take(limit_manga) {
                     let mut mm = m.clone(); mm.id = Uuid::new_v4().to_string();
-                    let _ = db::insert_manga(&tx, &mm);
+                    let _ = pg_db::insert_manga(&data.pool, &mm).await;
                     let sid = if let Some(s) = parse_source(&source) { s as i32 } else if let Some((id,_)) = wp_manga_source_by_name(&source.to_lowercase()) { id } else { 0 };
                     let msd = MangaSourceData { manga_id: mm.id.clone(), source_id: sid, source_manga_id: u.clone(), source_manga_url: u.clone() };
-                    let msd_id = match db::insert_manga_source_data(&tx, &msd) { Ok(id)=>id, Err(_)=>continue };
+                    let msd_id = match pg_db::insert_manga_source_data(&data.pool, &msd).await { Ok(id)=>id, Err(_)=>continue };
                     let chs = match sname.as_str() {
                         "firescans" => crate::sources::firescans::get_chapters(client, &u).await.unwrap_or_default(),
                         "rizzcomic" => crate::sources::rizzcomic::get_chapters(client, &u).await.unwrap_or_default(),
                         _ => crate::sources::wp_manga::get_chapters_base(client, &base, &u).await.unwrap_or_default(),
                     };
                     let chs_limited: Vec<_> = chs.into_iter().take(limit_ch).collect();
-                    let _ = db::insert_chapters(&tx, msd_id, &chs_limited);
+                    let _ = pg_db::insert_chapters(&data.pool, msd_id, &chs_limited).await;
                     manga_added += 1; ch_added += chs_limited.len();
                 }
-                let _ = tx.commit();
                 HttpResponse::Ok().json(json!({"source": source.to_string(), "manga_added": manga_added, "chapters_added": ch_added}))
             }))
 .route("/crawl/full", web::get().to(|data: web::Data<AppState>, query: web::Query<std::collections::HashMap<String,String>>| async move {
@@ -2152,25 +2177,36 @@ async fn main() -> std::io::Result<()> {
             .route("/verify/downloads", web::get().to(|data: web::Data<AppState>| async move {
                 use serde_json::json;
                 use reqwest::Url;
-                let conn = data.db.lock().unwrap();
-                let mut stmt = conn.prepare("SELECT id, name FROM sources") .unwrap();
-                let rows = stmt.query_map([], |row| { Ok((row.get::<_,i32>(0)?, row.get::<_,String>(1)?)) }).unwrap();
+                let client = match data.pool.get().await {
+                    Ok(c) => c,
+                    Err(_) => return HttpResponse::InternalServerError().finish(),
+                };
+                let rows = match client.query("SELECT id, name FROM sources", &[]).await {
+                    Ok(r) => r,
+                    Err(_) => return HttpResponse::InternalServerError().finish(),
+                };
                 let mut results = Vec::new();
-                for r in rows {
-                    if let Ok((sid, sname)) = r {
-                        let mut stmt2 = conn.prepare("SELECT m.id, c.chapter_number, c.url, msd.source_manga_url FROM manga m JOIN manga_source_data msd ON msd.manga_id=m.id JOIN chapters c ON c.manga_source_data_id=msd.id WHERE msd.source_id = ?1 LIMIT 1").unwrap();
-                        let cand = stmt2.query_map([sid], |row| { Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?, row.get::<_,String>(3)?)) });
-                        if let Ok(mut it) = cand {
-                            if let Some(Ok((mid, ch, url, base))) = it.next() {
-                                let abs = if Url::parse(&url).is_ok() { url } else { Url::parse(&base).ok().and_then(|b| b.join(&url).ok()).map(|u| u.to_string()).unwrap_or(url) };
-                                let res = scraper::download_chapter_to_memory(&data.client, sid, &abs).await;
-                                match res {
-                                    Ok(bytes) => results.push(json!({"source_id":sid,"source":sname,"manga_id":mid,"chapter":ch,"ok":true,"bytes":bytes.len()})),
-                                    Err(e) => results.push(json!({"source_id":sid,"source":sname,"manga_id":mid,"chapter":ch,"ok":false,"error":e.to_string()})),
-                                }
-                            } else {
-                                results.push(json!({"source_id":sid,"source":sname,"ok":false,"error":"no chapter found"}));
+                for row in rows {
+                    let sid: i32 = row.get(0);
+                    let sname: String = row.get(1);
+                    let ch_rows = client.query(
+                        "SELECT m.id, c.chapter_number, c.url, msd.source_manga_url FROM manga m JOIN manga_source_data msd ON msd.manga_id=m.id JOIN chapters c ON c.manga_source_data_id=msd.id WHERE msd.source_id = $1 LIMIT 1",
+                        &[&sid]
+                    ).await;
+                    if let Ok(chs) = ch_rows {
+                        if let Some(ch_row) = chs.get(0) {
+                            let mid: String = ch_row.get(0);
+                            let ch: String = ch_row.get(1);
+                            let url: String = ch_row.get(2);
+                            let base: String = ch_row.get(3);
+                            let abs = if Url::parse(&url).is_ok() { url } else { Url::parse(&base).ok().and_then(|b| b.join(&url).ok()).map(|u| u.to_string()).unwrap_or(url) };
+                            let res = scraper::download_chapter_to_memory(&data.client, sid, &abs).await;
+                            match res {
+                                Ok(bytes) => results.push(json!({"source_id":sid,"source":sname,"manga_id":mid,"chapter":ch,"ok":true,"bytes":bytes.len()})),
+                                Err(e) => results.push(json!({"source_id":sid,"source":sname,"manga_id":mid,"chapter":ch,"ok":false,"error":e.to_string()})),
                             }
+                        } else {
+                            results.push(json!({"source_id":sid,"source":sname,"ok":false,"error":"no chapter found"}));
                         }
                     }
                 }
@@ -2361,10 +2397,23 @@ async fn main() -> std::io::Result<()> {
                         { let mut p = data_clone.metadata_progress.lock().unwrap(); p.processed_in_phase += 1; }
                     }
                     { let mut p = data_clone.metadata_progress.lock().unwrap(); p.anilist_updated += updated_ani; }
-                    // step 4: merge (fast)
-                    let conn = data_clone.db.lock().unwrap();
+                    // step 4: merge (fast) - now using PostgreSQL
                     { let mut p = data_clone.metadata_progress.lock().unwrap(); p.current_phase = Some("merge".into()); p.total_pending=None; }
-                    match metadata::aggregate::merge_only(&conn, &data_clone.client).await { Ok(n)=>{ let mut p=data_clone.metadata_progress.lock().unwrap(); p.merged_updated=n; p.current_phase=None; p.finished_at=Some(Utc::now().timestamp()); p.in_progress=false; }, Err(e)=>{ let mut p=data_clone.metadata_progress.lock().unwrap(); p.error=Some(format!("merge: {}", e)); p.in_progress=false; p.finished_at=Some(Utc::now().timestamp()); } }
+                    match metadata::aggregate::merge_only(&data_clone.pool, &data_clone.client).await {
+                        Ok(n)=>{
+                            let mut p=data_clone.metadata_progress.lock().unwrap();
+                            p.merged_updated=n;
+                            p.current_phase=None;
+                            p.finished_at=Some(Utc::now().timestamp());
+                            p.in_progress=false;
+                        },
+                        Err(e)=>{
+                            let mut p=data_clone.metadata_progress.lock().unwrap();
+                            p.error=Some(format!("merge: {}", e));
+                            p.in_progress=false;
+                            p.finished_at=Some(Utc::now().timestamp());
+                        }
+                    }
                 });
                 HttpResponse::Accepted().finish()
             }))
@@ -2374,27 +2423,31 @@ async fn main() -> std::io::Result<()> {
             }))
             .route("/verify/source/{source}", web::get().to(|data: web::Data<AppState>, source: web::Path<String>| async move {
                 use serde_json::json;
-                let conn = data.db.lock().unwrap();
+                let client = match data.pool.get().await {
+                    Ok(c) => c,
+                    Err(_) => return HttpResponse::InternalServerError().finish(),
+                };
                 // Map source to id
                 let sid = if let Some(s) = parse_source(&source) { s as i32 } else if let Some((id,_)) = wp_manga_source_by_name(&source.to_lowercase()) { id } else { -1 };
                 if sid < 0 { return HttpResponse::BadRequest().json(json!({"error":"unknown source"})); }
                 // Counts
-                let manga_count: i64 = conn.query_row("SELECT COUNT(DISTINCT m.id) FROM manga m JOIN manga_source_data msd ON msd.manga_id=m.id WHERE msd.source_id = ?1", [sid], |row| row.get(0)).unwrap_or(0);
-                let chapter_count: i64 = conn.query_row("SELECT COUNT(1) FROM chapters c JOIN manga_source_data msd ON c.manga_source_data_id=msd.id WHERE msd.source_id = ?1", [sid], |row| row.get(0)).unwrap_or(0);
-                let meta_count: i64 = conn.query_row("SELECT COUNT(DISTINCT m.id) FROM manga m JOIN manga_source_data msd ON msd.manga_id=m.id WHERE msd.source_id=?1 AND (COALESCE(m.mangabaka_id,'')<>'' OR COALESCE(m.mal_id,0)>0 OR COALESCE(m.anilist_id,0)>0)", [sid], |row| row.get(0)).unwrap_or(0);
+                let manga_count: i64 = client.query_one("SELECT COUNT(DISTINCT m.id) FROM manga m JOIN manga_source_data msd ON msd.manga_id=m.id WHERE msd.source_id = $1", &[&sid]).await.ok().and_then(|row| row.get(0)).unwrap_or(0);
+                let chapter_count: i64 = client.query_one("SELECT COUNT(1) FROM chapters c JOIN manga_source_data msd ON c.manga_source_data_id=msd.id WHERE msd.source_id = $1", &[&sid]).await.ok().and_then(|row| row.get(0)).unwrap_or(0);
+                let meta_count: i64 = client.query_one("SELECT COUNT(DISTINCT m.id) FROM manga m JOIN manga_source_data msd ON msd.manga_id=m.id WHERE msd.source_id=$1 AND (COALESCE(m.mangabaka_id,'')<>'' OR COALESCE(m.mal_id,0)>0 OR COALESCE(m.anilist_id,0)>0)", &[&sid]).await.ok().and_then(|row| row.get(0)).unwrap_or(0);
                 // One download attempt
-let mut stmt = conn.prepare("SELECT m.id, c.chapter_number, c.url, msd.source_manga_url FROM manga m JOIN manga_source_data msd ON msd.manga_id=m.id JOIN chapters c ON c.manga_source_data_id=msd.id WHERE msd.source_id = ?1 LIMIT 1").unwrap();
-                let mut rows = stmt.query([sid]).unwrap();
-let (download_ok, download_error) = if let Ok(Some(row)) = rows.next() {
-                    let mid: String = row.get(0).unwrap();
-                    let ch: String = row.get(1).unwrap();
-                    let url: String = row.get(2).unwrap();
-                    let series_url: String = row.get(3).unwrap_or_default();
+                let rows = client.query("SELECT m.id, c.chapter_number, c.url, msd.source_manga_url FROM manga m JOIN manga_source_data msd ON msd.manga_id=m.id JOIN chapters c ON c.manga_source_data_id=msd.id WHERE msd.source_id = $1 LIMIT 1", &[&sid]).await;
+                let (download_ok, download_error) = if let Ok(rows_vec) = rows {
+                    if let Some(row) = rows_vec.get(0) {
+                        let mid: String = row.get(0);
+                        let ch: String = row.get(1);
+                        let url: String = row.get(2);
+                        let series_url: String = row.get(3);
                     let full_url = if url.starts_with("http") { url.clone() } else { reqwest::Url::parse(&series_url).and_then(|b| b.join(&url)).map(|u| u.to_string()).unwrap_or(url.clone()) };
-                    match scraper::download_chapter_to_memory(&data.client, sid, &full_url).await {
-                        Ok(bytes) => (true, Some(json!({"manga_id":mid,"chapter":ch,"bytes":bytes.len()}))),
-                        Err(e) => (false, Some(json!({"manga_id":mid,"chapter":ch,"error":e.to_string()}))),
-                    }
+                        match scraper::download_chapter_to_memory(&data.client, sid, &full_url).await {
+                            Ok(bytes) => (true, Some(json!({"manga_id":mid,"chapter":ch,"bytes":bytes.len()}))),
+                            Err(e) => (false, Some(json!({"manga_id":mid,"chapter":ch,"error":e.to_string()}))),
+                        }
+                    } else { (false, None) }
                 } else { (false, None) };
                 HttpResponse::Ok().json(json!({
                     "source": source.to_string(),
@@ -2410,26 +2463,23 @@ let (download_ok, download_error) = if let Ok(Some(row)) = rows.next() {
                 let url = match query.get("url") { Some(u)=>u, None=>return HttpResponse::BadRequest().json(json!({"error":"url is required"})) };
                 let limit_ch = query.get("chapters").and_then(|s| s.parse::<usize>().ok()).unwrap_or(3);
                 let client = &data.client;
-                let mut conn = data.db.lock().unwrap();
-                let tx = match conn.transaction() { Ok(t)=>t, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
                 // Derive a basic title from slug
                 let slug = url.trim_end_matches('/').rsplit('/').next().unwrap_or("");
                 let title = if slug.is_empty() { "Kagane Series".to_string() } else { slug.replace(['-','_'], " ") };
                 let manga = Manga { id: uuid::Uuid::new_v4().to_string(), title, alt_titles: None, cover_url: None, description: None, tags: None, rating: None, monitored: None, check_interval_secs: None, discover_interval_secs: None, last_chapter_check: None, last_discover_check: None };
-                let _ = db::insert_manga(&tx, &manga);
+                let _ = pg_db::insert_manga(&data.pool, &manga).await;
                 // Kagane source MSD
                 let msd = MangaSourceData { manga_id: manga.id.clone(), source_id: Source::Kagane as i32, source_manga_id: url.clone(), source_manga_url: url.clone() };
-                let msd_id = match db::insert_manga_source_data(&tx, &msd) { Ok(id)=>id, Err(_)=>{ let _=tx.rollback(); return HttpResponse::InternalServerError().finish(); } };
+                let msd_id = match pg_db::insert_manga_source_data(&data.pool, &msd).await { Ok(id)=>id, Err(_)=>{ return HttpResponse::InternalServerError().finish(); } };
                 // Chapters from Kagane
                 let chs = crate::sources::kagane::get_chapters(client, url).await.unwrap_or_default();
                 let chs_limited: Vec<_> = chs.into_iter().take(limit_ch).collect();
-                let _ = db::insert_chapters(&tx, msd_id, &chs_limited);
+                let _ = pg_db::insert_chapters(&data.pool, msd_id, &chs_limited).await;
                 // External providers
                 for (sid, link) in crate::sources::kagane::extract_provider_links(client, url).await.into_iter().take(20) {
                     let extra = MangaSourceData { manga_id: manga.id.clone(), source_id: sid, source_manga_id: link.clone(), source_manga_url: link };
-                    let _ = db::insert_manga_source_data(&tx, &extra);
+                    let _ = pg_db::insert_manga_source_data(&data.pool, &extra).await;
                 }
-                let _ = tx.commit();
                 HttpResponse::Ok().json(json!({"ok":true, "manga_id": manga.id, "title": manga.title, "chapters_added": chs_limited.len()}))
             }))
         })

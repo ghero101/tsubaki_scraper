@@ -1,32 +1,31 @@
 use reqwest::Client;
-use rusqlite::Connection;
+use deadpool_postgres::Pool;
 use std::error::Error;
 
 // Combine metadata from providers into manga.description, manga.tags, manga.rating
 #[allow(dead_code)]
-pub async fn sync_all(conn: &Connection, client: &Client) -> Result<usize, Box<dyn Error>> {
+pub async fn sync_all(pool: &Pool, client: &Client) -> Result<usize, Box<dyn Error>> {
     // Ensure provider IDs exist first
-    let _ = super::mangabaka::sync_all(conn, client).await;
-    let _ = super::mal::sync_all(conn, client).await;
-    let _ = super::anilist::sync_all(conn, client).await;
-    merge_only(conn, client).await
+    let _ = super::mangabaka::sync_all(pool, client).await;
+    let _ = super::mal::sync_all(pool, client).await;
+    let _ = super::anilist::sync_all(pool, client).await;
+    merge_only(pool, client).await
 }
 
 // Merge using existing provider IDs without running provider syncs
-pub async fn merge_only(conn: &Connection, client: &Client) -> Result<usize, Box<dyn Error>> {
-    let mut stmt = conn.prepare("SELECT id, COALESCE(mangabaka_id,''), COALESCE(mal_id,0), COALESCE(anilist_id,0), title FROM manga")?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, i64>(2)?,
-            row.get::<_, i64>(3)?,
-            row.get::<_, String>(4)?,
-        ))
-    })?;
+pub async fn merge_only(pool: &Pool, client: &Client) -> Result<usize, Box<dyn Error>> {
+    let db_client = pool.get().await.expect("Failed to get connection from pool");
+
+    let rows = db_client.query("SELECT id, COALESCE(mangabaka_id,''), COALESCE(mal_id,0), COALESCE(anilist_id,0), title FROM manga", &[]).await?;
+
     let mut updated = 0usize;
-    for row in rows {
-        let (manga_id, _mangabaka_id, mal_id, anilist_id, _title) = row?;
+    for row in rows.iter() {
+        let manga_id: String = row.get(0);
+        let _mangabaka_id: String = row.get(1);
+        let mal_id: i64 = row.get(2);
+        let anilist_id: i64 = row.get(3);
+        let _title: String = row.get(4);
+
         let mut descr: Option<String> = None;
         let mut tags: Vec<String> = Vec::new();
         let mut rating: Option<String> = None;
@@ -81,10 +80,10 @@ pub async fn merge_only(conn: &Connection, client: &Client) -> Result<usize, Box
         let desc_str = descr.as_deref().filter(|s| !s.trim().is_empty());
         let rating_str = rating.as_deref();
         if desc_str.is_some() || tags_str.is_some() || rating_str.is_some() {
-            conn.execute(
-                "UPDATE manga SET description = COALESCE(?1, description), tags = COALESCE(?2, tags), rating = COALESCE(?3, rating) WHERE id = ?4",
-                rusqlite::params![desc_str, tags_str, rating_str, manga_id],
-            )?;
+            db_client.execute(
+                "UPDATE manga SET description = COALESCE($1, description), tags = COALESCE($2, tags), rating = COALESCE($3, rating) WHERE id = $4",
+                &[&desc_str, &tags_str, &rating_str, &manga_id],
+            ).await?;
             updated += 1;
         }
     }

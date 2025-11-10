@@ -1,5 +1,5 @@
 use reqwest::Client;
-use rusqlite::Connection;
+use deadpool_postgres::Pool;
 use serde_json::Value;
 use std::error::Error;
 
@@ -91,21 +91,23 @@ pub async fn fetch_details(
 }
 
 #[allow(dead_code)]
-pub async fn sync_all(conn: &Connection, client: &Client) -> Result<usize, Box<dyn Error>> {
+pub async fn sync_all(pool: &Pool, client: &Client) -> Result<usize, Box<dyn Error>> {
+    let db_client = pool.get().await.expect("Failed to get connection from pool");
+
     // Get manga needing mangabaka_id
-    let mut stmt = conn.prepare(
-        "SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = ''",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        let id: String = row.get(0)?;
-        let title: String = row.get(1)?;
-        let alts: String = row.get(2)?;
-        Ok((id, title, alts))
-    })?;
+    let rows = db_client
+        .query(
+            "SELECT id, title, COALESCE(alt_titles,'') FROM manga WHERE mangabaka_id IS NULL OR mangabaka_id = ''",
+            &[],
+        )
+        .await?;
 
     let mut updated = 0usize;
     for row in rows {
-        let (manga_id, title, alts) = row?;
+        let manga_id: String = row.get(0);
+        let title: String = row.get(1);
+        let alts: String = row.get(2);
+
         let mut candidates: Vec<String> = vec![title.clone()];
         for t in alts.split(", ") {
             if !t.trim().is_empty() {
@@ -159,14 +161,18 @@ pub async fn sync_all(conn: &Connection, client: &Client) -> Result<usize, Box<d
             }
         }
         if let Some(pid) = found {
-            let _ = conn.execute(
-                "UPDATE manga SET mangabaka_id = ?1 WHERE id = ?2",
-                rusqlite::params![pid, manga_id],
-            )?;
-            let _ = conn.execute(
-                "INSERT OR REPLACE INTO provider_ids (manga_id, provider, provider_id) VALUES (?1, 'mangabaka', ?2)",
-                rusqlite::params![manga_id, pid],
-            )?;
+            let _ = db_client
+                .execute(
+                    "UPDATE manga SET mangabaka_id = $1 WHERE id = $2",
+                    &[&pid, &manga_id],
+                )
+                .await?;
+            let _ = db_client
+                .execute(
+                    "INSERT INTO provider_ids (manga_id, provider, provider_id) VALUES ($1, 'mangabaka', $2) ON CONFLICT (manga_id, provider) DO UPDATE SET provider_id = EXCLUDED.provider_id",
+                    &[&manga_id, &pid],
+                )
+                .await?;
             updated += 1;
         }
     }
